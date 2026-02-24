@@ -31,7 +31,7 @@ window.addEventListener('load', function () {
 		backgroundColor: "#2f2f2f",
 		parent: "game-container",
 		scale: {
-			mode: Phaser.Scale.ScaleModes.NONE,
+			mode: Phaser.Scale.ScaleModes.HEIGHT_CONTROLS_WIDTH,
 			autoCenter: Phaser.Scale.Center.CENTER_BOTH
 		},
 		scene: [Boot, Preload, Level, Pause, Start, Finish],

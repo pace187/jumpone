@@ -4,7 +4,6 @@
 /* START OF COMPILED CODE */
 
 /* START-USER-IMPORTS */
-import Level from "./Level";
 /* END-USER-IMPORTS */
 
 export default class Finish extends Phaser.Scene {
@@ -55,29 +54,7 @@ export default class Finish extends Phaser.Scene {
 
 		home.setInteractive({ useHandCursor: true });
 		home.on("pointerdown", () => {
-			const levelScene = this.scene.get("Level") as Level;
-
-			fetch(`${levelScene["SUPABASE_URL"]}/rest/v1/telemetry`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"apikey": levelScene["SUPABASE_ANON_KEY"],
-					"Authorization": `Bearer ${levelScene["SUPABASE_ANON_KEY"]}`,
-					"Prefer": "return=minimal"
-				},
-				body: JSON.stringify({
-					session_id: levelScene.sessionId,
-					pos_x: levelScene.arcadesprite_1.x,
-					pos_y: levelScene.arcadesprite_1.y,
-					vel_x: 0,
-					vel_y: 0,
-					checkpointReached: levelScene.checkpointsReached,
-					state: "Finished",
-					timestamp: Date.now()
-				})
-			}).finally(() => {
-				window.location.href = "https://bachelor.openpace.org/";
-			});
+			window.location.href = "https://bachelor.openpace.org/";
 		});
 	}
 
