@@ -6,6 +6,8 @@ JumpOne is a 2D platformer game developed as part of a bachelor thesis. The game
 
 This project serves as the practical component of a bachelor thesis investigating **player churn prediction based on movement telemetry data**. The game collects in-game movement data (e.g., player positions, jump patterns, directional changes) and uses this telemetry to analyze and predict whether a player is likely to stop playing (churn). The goal is to identify behavioral patterns in player movement that correlate with disengagement, enabling early intervention strategies to improve player retention.
 
+Phyton AI part is work in progress
+
 ## Requirements
 
 [Node.js](https://nodejs.org) is required to install dependencies and run scripts via `npm`.
