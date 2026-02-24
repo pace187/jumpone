@@ -1,0 +1,69 @@
+{
+    "id": "b9f325c5-dbc4-4c17-b032-d030812c5634",
+    "sceneType": "SCENE",
+    "settings": {
+        "exportClass": true,
+        "autoImport": true,
+        "preloadPackFiles": [],
+        "createMethodName": "editorCreate",
+        "sceneKey": "Finish",
+        "compilerOutputLanguage": "TYPE_SCRIPT",
+        "borderWidth": 1280,
+        "borderHeight": 1000
+    },
+    "displayList": [
+        {
+            "type": "TileSprite",
+            "id": "7105b950-9e43-4f07-8f98-0d657f733471",
+            "label": "background_solid_grass",
+            "texture": {
+                "key": "background_solid_grass"
+            },
+            "originX": 0,
+            "originY": 0,
+            "width": 1280,
+            "height": 1000
+        },
+        {
+            "type": "Image",
+            "id": "0b720716-167c-4c69-a5a2-274903d8e4e1",
+            "label": "star",
+            "texture": {
+                "key": "star"
+            },
+            "x": 669,
+            "y": 198,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Text",
+            "id": "d96acd01-eeb5-4fab-858e-6ab7e6e12c28",
+            "label": "text_1",
+            "x": 440,
+            "y": 385,
+            "text": "You Won!",
+            "fontSize": "100px",
+            "fontStyle": "bold"
+        },
+        {
+            "type": "Image",
+            "id": "c66491c1-92db-4cbb-ad24-f1ecafaab261",
+            "label": "home",
+            "texture": {
+                "key": "home"
+            },
+            "x": 660,
+            "y": 780,
+            "scaleX": 2,
+            "scaleY": 2
+        }
+    ],
+    "plainObjects": [],
+    "meta": {
+        "app": "Phaser Editor - Scene Editor",
+        "url": "https://phaser.io/editor",
+        "contentType": "phasereditor2d.core.scene.SceneContentType",
+        "version": 5
+    }
+}

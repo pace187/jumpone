@@ -1,0 +1,58 @@
+{
+    "id": "9846e75b-8336-4c1d-8fc9-33e91a6aadb1",
+    "sceneType": "SCENE",
+    "settings": {
+        "exportClass": true,
+        "autoImport": true,
+        "preloadPackFiles": [],
+        "createMethodName": "editorCreate",
+        "sceneKey": "Start",
+        "compilerOutputLanguage": "TYPE_SCRIPT",
+        "borderWidth": 1280,
+        "borderHeight": 1000
+    },
+    "displayList": [
+        {
+            "type": "TileSprite",
+            "id": "388d9c6e-e016-4ac3-9aec-ad9ea2f62276",
+            "label": "background_solid_sand",
+            "texture": {
+                "key": "background_solid_sand"
+            },
+            "originX": 0,
+            "originY": 0,
+            "width": 1280,
+            "height": 1000
+        },
+        {
+            "type": "Image",
+            "id": "d65e8f92-1cbc-41eb-aefb-224bf0172eb5",
+            "label": "buttonStart",
+            "texture": {
+                "key": "buttonStart"
+            },
+            "x": 640,
+            "y": 697,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Text",
+            "id": "0189ca7f-2984-496a-ab2d-98f40b4fecac",
+            "label": "movementExplanation",
+            "x": 147,
+            "y": 216,
+            "text": "hold SPACEBAR to charge your Jump\n\nLeftKey/RightKey: Go Left/Go Right\n\nESC:              Pause",
+            "fontSize": "50px",
+            "fontStyle": "bold",
+            "color": "#000000ff"
+        }
+    ],
+    "plainObjects": [],
+    "meta": {
+        "app": "Phaser Editor - Scene Editor",
+        "url": "https://phaser.io/editor",
+        "contentType": "phasereditor2d.core.scene.SceneContentType",
+        "version": 5
+    }
+}

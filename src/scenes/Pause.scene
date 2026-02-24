@@ -1,0 +1,68 @@
+{
+    "id": "e0422adf-bea3-4909-8e4a-d1b51730e68a",
+    "sceneType": "SCENE",
+    "settings": {
+        "exportClass": true,
+        "autoImport": true,
+        "preloadPackFiles": [],
+        "createMethodName": "editorCreate",
+        "sceneKey": "Pause",
+        "compilerOutputLanguage": "TYPE_SCRIPT",
+        "borderWidth": 1280,
+        "borderHeight": 1000
+    },
+    "displayList": [
+        {
+            "type": "TileSprite",
+            "id": "588bb81b-26f2-44a2-bc62-3c8aaef8e5af",
+            "label": "background_solid_sand",
+            "texture": {
+                "key": "background_solid_sand"
+            },
+            "originX": 0,
+            "originY": 0,
+            "width": 1280,
+            "height": 1000
+        },
+        {
+            "type": "Image",
+            "id": "5fca02b9-ab68-40b9-9a98-76ca493ef57f",
+            "label": "settings",
+            "texture": {
+                "key": "gear"
+            },
+            "x": 1200,
+            "y": 80
+        },
+        {
+            "type": "Image",
+            "id": "ace3b872-7e51-4ce3-aa1d-f32cc18a4c8f",
+            "label": "home",
+            "texture": {
+                "key": "home"
+            },
+            "x": 654,
+            "y": 488,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Text",
+            "id": "9c6c0ea8-040e-444a-a58c-9744d65602a7",
+            "label": "endRun",
+            "x": 539,
+            "y": 558,
+            "text": "End Run!",
+            "fontSize": "56px",
+            "fontStyle": "bold",
+            "color": "#ff0404ff"
+        }
+    ],
+    "plainObjects": [],
+    "meta": {
+        "app": "Phaser Editor - Scene Editor",
+        "url": "https://phaser.io/editor",
+        "contentType": "phasereditor2d.core.scene.SceneContentType",
+        "version": 5
+    }
+}
