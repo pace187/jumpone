@@ -41,4 +41,4 @@ This will take your game code and build it into a single bundle, ready for deplo
 
 ## Credits
 
-- **Icons/Graphics:** [Kenney]([https://phaser.io](https://kenney.nl/))
+- **Icons/Graphics:** [Kenney](https://kenney.nl/)
