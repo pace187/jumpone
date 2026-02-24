@@ -557,11 +557,6 @@
                 "key": "flag_yellow_b"
             },
             {
-                "url": "assets/FufuSuperDino.png",
-                "type": "image",
-                "key": "FufuSuperDino"
-            },
-            {
                 "url": "assets/game_icons_double/gamepad.png",
                 "type": "image",
                 "key": "gamepad"

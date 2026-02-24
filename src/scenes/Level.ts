@@ -300,6 +300,7 @@ export default class Level extends Phaser.Scene {
 
 		//debugging
 		//console.log(this.checkpointsReached);
+		//console.log();
 
 		//Camera Follow
 		this.cameras.main.startFollow(this.arcadesprite_1, true);
