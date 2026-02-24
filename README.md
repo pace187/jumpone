@@ -38,3 +38,7 @@ This will take your game code and build it into a single bundle, ready for deplo
 - **Language:** TypeScript
 - **Bundler:** Vite
 - **Editor:** [Phaser Editor v4](https://phaser.io/editor)
+
+## Credits
+
+- **Icons/Graphics:** [Kenney](https://kenney.nl/)
