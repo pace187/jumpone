@@ -255,9 +255,33 @@ export default class Level extends Phaser.Scene {
 	checkpointsReached = 0;
 	private collectedCheckpoints = new Set<string>();
 	lastTelemetry = 0;
-	private sessionDuration = 24 * 60 * 60 * 1000; //24 hours
+	private lastInputTime = -1;
+	private isAfk = false;
+	private readonly AFK_TIMEOUT = 5000; // 10 seconds
+
+	// Machine Learning Telemetry Tracking
+	private jumpInProgress = false;
+	private jumpStartX = 0;
+	private jumpStartY = 0;
+	private jumpStartTime = 0;
+	private landTime = 0;
+	private sessionStartTime = 0;
+
+	private succeededJumps = 0;
+	private failedJumps = 0;
+	private totalFallDistance = 0;
+	private maxFallDistance = 0;
+	private totalDistanceCovered = 0;
+	private totalPlanningTime = 0;
+	private totalJumpsAttempted = 0;
+	private lastFallDeathTime = 0;
+
 	create() {
 		this.editorCreate();
+		this.lastInputTime = -1;
+		this.isAfk = false;
+		this.sessionStartTime = Date.now();
+		this.landTime = Date.now();
 		this.collisionLayer.setCollision([11]);
 		this.iceLayer.setCollision([1]);
 
@@ -269,30 +293,12 @@ export default class Level extends Phaser.Scene {
 			this.checkpointsReached++;
 		}, this);
 
-		this.finishLayer.setTileIndexCallback(130, (_sprite: any, tile: Phaser.Tilemaps.Tile) => {
+		this.finishLayer.setTileIndexCallback(130, (_sprite: Phaser.GameObjects.GameObject, tile: Phaser.Tilemaps.Tile) => {
 			const key = `${tile.x},${tile.y}`;
 			if (this.collectedCheckpoints.has(key)) return;
 			this.collectedCheckpoints.add(key);
 			tile.setAlpha(0);
-			fetch(`${this.SUPABASE_URL}/rest/v1/telemetry`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"apikey": this.SUPABASE_ANON_KEY,
-					"Authorization": `Bearer ${this.SUPABASE_ANON_KEY}`,
-					"Prefer": "return=minimal"
-				},
-				body: JSON.stringify({
-					session_id: this.sessionId,
-					pos_x: this.arcadesprite_1.x,
-					pos_y: this.arcadesprite_1.y,
-					vel_x: 0,
-					vel_y: 0,
-					checkpointReached: this.checkpointsReached,
-					state: "Finished",
-					timestamp: Date.now()
-				})
-			});
+			this.sendLevelCompleteTelemetry();
 			this.scene.stop("Level");
 			this.scene.start("Finish");
 		}, this);
@@ -301,7 +307,7 @@ export default class Level extends Phaser.Scene {
 		this.settings.setPosition(1200, 80);
 		this.physics.world.setBounds(0, 0, 1280, 7000);
 		this.physics.world.TILE_BIAS = 40;
-		this.sessionId = this.getOrCreateSession();
+		this.sessionId = this.createSession();
 		this.arcadesprite_1.setBounce(0.7, 0);
 
 		this.input.keyboard!.on('keydown-ESC', () => {
@@ -314,13 +320,30 @@ export default class Level extends Phaser.Scene {
 			this.scene.pause();
 			this.scene.launch('Pause');
 		});
+
+		// Reset AFK state when scene resumes (from manual or AFK pause)
+		this.events.on('resume', () => {
+			this.isAfk = false;
+			this.lastInputTime = -1;
+		});
 	}
 
 	update(_time: number, delta: number) {
 
-		//debugging
-		//console.log(this.checkpointsReached);
-		//console.log();
+		// AFK detection — initialize from first update frame's clock
+		if (this.lastInputTime < 0) {
+			this.lastInputTime = _time;
+		}
+		const hasInput = this.spaceKey.isDown || this.leftKey.isDown || this.rightKey.isDown;
+		if (hasInput) {
+			this.lastInputTime = _time;
+			this.isAfk = false;
+		} else if (_time - this.lastInputTime > this.AFK_TIMEOUT && !this.isAfk) {
+			this.isAfk = true;
+			this.updateTelemetry(_time, true);  // force-send AFK state before pausing
+			this.scene.pause();
+			this.scene.launch('Pause');
+		}
 
 		//Camera Follow
 		this.cameras.main.startFollow(this.arcadesprite_1, true);
@@ -346,6 +369,32 @@ export default class Level extends Phaser.Scene {
 			this.arcadesprite_1.flipX = false;
 		} else if (body.velocity.x < 0 && !onGround) {
 			this.arcadesprite_1.flipX = true;
+		}
+
+		// Machine Learning - Fall Detection
+		if (body.y > 6900 && _time - this.lastFallDeathTime > 1000) {
+			// Player fell. Count as failed jump if there was a jump in progress.
+			this.lastFallDeathTime = _time;
+			if (this.jumpInProgress) {
+				this.failedJumps++;
+				const currentFallDistance = Math.abs(body.y - this.jumpStartY);
+				this.totalFallDistance += currentFallDistance;
+				if (currentFallDistance > this.maxFallDistance) {
+					this.maxFallDistance = currentFallDistance;
+				}
+				this.jumpInProgress = false;
+				this.landTime = _time; // Reset planning time start point on respawn
+			}
+		}
+
+		// Machine Learning - Landing Logic
+		if (onGround && this.jumpInProgress && !isMovingUp) {
+			this.succeededJumps++;
+			const distance = Math.hypot(body.x - this.jumpStartX, body.y - this.jumpStartY);
+			this.totalDistanceCovered += distance;
+
+			this.jumpInProgress = false;
+			this.landTime = _time;
 		}
 
 		if (onGround && !isMovingUp) {
@@ -414,6 +463,16 @@ export default class Level extends Phaser.Scene {
 	}
 
 	private applyJump() {
+		// Machine Learning - Jump Start Logic
+		if (this.arcadesprite_1.body!.blocked.down) {
+			this.jumpInProgress = true;
+			this.jumpStartX = this.arcadesprite_1.x;
+			this.jumpStartY = this.arcadesprite_1.y;
+			this.jumpStartTime = this.time.now;
+			this.totalJumpsAttempted++;
+			this.totalPlanningTime += (this.jumpStartTime - this.landTime);
+		}
+
 		this.arcadesprite_1.setVelocityY(-this.playerJumpPower);
 		this.arcadesprite_1.setVelocityX(this.jumpDirection * this.playerVelocity * 1.5);
 		this.arcadesprite_1.play("CharacterJumpspritesheet", true);
@@ -422,23 +481,8 @@ export default class Level extends Phaser.Scene {
 		this.jumpDirection = 0;
 	}
 
-	private getOrCreateSession() {
-		const stored = localStorage.getItem('gameSession');
-
-		if (stored) {
-			const session = JSON.parse(stored);
-			const now = Date.now();
-
-			//if expired create new session
-			if (now - session.created < this.sessionDuration) {
-				console.log('Existing session:', session.id);
-				return session.id;
-			} else {
-				console.log('Session expired, creating new one');
-			}
-		}
-
-		//new session
+	private createSession() {
+		//new session every game start for better per-try tracking
 		const newSessionId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 		localStorage.setItem('gameSession', JSON.stringify({
 			id: newSessionId,
@@ -451,22 +495,28 @@ export default class Level extends Phaser.Scene {
 
 	//telemetry Data
 
-	private SUPABASE_URL = 'https://zcsybjshfrbedgujpytk.supabase.co';
-	private SUPABASE_ANON_KEY = 'sb_publishable_XSCnu40VFdu2LVdxknwssQ_KA3upsQ-';
+	private SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+	private SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+	private get player() { return this.arcadesprite_1; }
 
-	private updateTelemetry(time: number) {
-		const player = this.arcadesprite_1;
-		if (!player || !player.body) return;
+	private updateTelemetry(time: number, force = false) {
+		if (!this.player || !this.player.body) return;
 
 		let state = "Idle";
-		if (!player.body.blocked.down) {
-			state = player.body.velocity.y < 0 ? "Jumping" : "Falling";
-		} else if (Math.abs(player.body.velocity.x) > 5) {
+		if (this.isAfk) {
+			state = "AFK";
+		} else if (!this.player.body.blocked.down) {
+			state = this.player.body.velocity.y < 0 ? "Jumping" : "Falling";
+		} else if (this.spaceKey.isDown) {
+			state = "Charging";
+		} else if (Math.abs(this.player.body.velocity.x) > 5) {
 			state = "Running";
 		}
 
-		if (time - this.lastTelemetry >= 100) {
+		if (force || time - this.lastTelemetry >= 100) {
 			this.lastTelemetry = time;
+
+			const currentMlData = this.aggregateSessionData();
 
 			fetch(`${this.SUPABASE_URL}/rest/v1/telemetry`, {
 				method: "POST",
@@ -478,18 +528,71 @@ export default class Level extends Phaser.Scene {
 				},
 				body: JSON.stringify({
 					session_id: this.sessionId,
-					pos_x: player.x,
-					pos_y: player.y,
-					vel_x: player.body.velocity.x,
-					vel_y: player.body.velocity.y,
-					checkpointReached: this.checkpointsReached,
+					pos_x: this.player.x,
+					pos_y: this.player.y,
+					vel_x: this.player.body.velocity.x,
+					vel_y: this.player.body.velocity.y,
+					velocity_magnitude: Math.round(Math.sqrt(this.player.body.velocity.x ** 2 + this.player.body.velocity.y ** 2)),
+					input_left: this.leftKey.isDown ? 1 : 0,
+					input_right: this.rightKey.isDown ? 1 : 0,
+					input_jump: this.spaceKey.isDown ? 1 : 0,
 					state: state,
-					timestamp: Date.now()
-					//time between checkpoints, maxheight reached, resets, totaltime, totaljumps
-
+					timestamp: Date.now(),
+					...currentMlData
 				})
 			}).catch(err => console.error("Telemetry send failed:", err));
 		}
+	}
+
+	private aggregateSessionData() {
+		// Calculate final machine-learning features
+		const jumpSuccessRate = this.totalJumpsAttempted > 0 ? (this.succeededJumps / this.totalJumpsAttempted) : 0;
+		const avgFallDistance = this.failedJumps > 0 ? (this.totalFallDistance / this.failedJumps) : 0;
+		const distancePerJump = this.totalJumpsAttempted > 0 ? (this.totalDistanceCovered / this.totalJumpsAttempted) : 0;
+		const avgTimeBetweenJumps = this.totalJumpsAttempted > 0 ? (this.totalPlanningTime / this.totalJumpsAttempted) : 0;
+		const sessionDuration_sec = (Date.now() - this.sessionStartTime) / 1000;
+
+		return {
+			jumpSuccessRate,
+			jumpsFailed: this.failedJumps,
+			avgFallDistance,
+			maxFallDistance: this.maxFallDistance,
+			distancePerJump,
+			avgTimeBetweenJumps,
+			totalJumpsAttempted: this.totalJumpsAttempted,
+			sessionDuration_sec
+		};
+	}
+
+	private sendLevelCompleteTelemetry() {
+		const mlPayload = this.aggregateSessionData();
+		const body = this.player.body as Phaser.Physics.Arcade.Body;
+
+		fetch(`${this.SUPABASE_URL}/rest/v1/telemetry`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"apikey": this.SUPABASE_ANON_KEY,
+				"Authorization": `Bearer ${this.SUPABASE_ANON_KEY}`,
+				"Prefer": "return=minimal"
+			},
+			body: JSON.stringify({
+				ml_data: {
+					session_id: this.sessionId,
+					pos_x: this.player.x,
+					pos_y: this.player.y,
+					vel_x: body.velocity.x,
+					vel_y: body.velocity.y,
+					velocity_magnitude: Math.round(Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2)),
+					input_left: this.leftKey.isDown ? 1 : 0,
+					input_right: this.rightKey.isDown ? 1 : 0,
+					input_jump: this.spaceKey.isDown ? 1 : 0,
+					state: "Finished",
+					timestamp: Date.now(),
+					...mlPayload
+				}
+			})
+		}).catch(err => console.error("Final Telemetry send failed:", err));
 	}
 	/* END-USER-CODE */
 }

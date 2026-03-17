@@ -41,8 +41,8 @@
             "texture": {
                 "key": "home"
             },
-            "x": 654,
-            "y": 488,
+            "x": 656,
+            "y": 671,
             "scaleX": 2,
             "scaleY": 2
         },
@@ -50,12 +50,37 @@
             "type": "Text",
             "id": "9c6c0ea8-040e-444a-a58c-9744d65602a7",
             "label": "endRun",
-            "x": 539,
-            "y": 558,
+            "x": 541,
+            "y": 741,
             "text": "End Run!",
             "fontSize": "56px",
             "fontStyle": "bold",
             "color": "#ff0404ff"
+        },
+        {
+            "type": "Image",
+            "id": "3c8ab722-79d5-45c7-8898-443ce7db6bbb",
+            "label": "background_solid_cloud",
+            "texture": {
+                "key": "background_solid_cloud"
+            },
+            "x": 660,
+            "y": 366,
+            "scaleX": 0.6,
+            "scaleY": 0.2
+        },
+        {
+            "type": "Text",
+            "id": "c0ef0490-2e0d-4f67-8008-e882a66716fb",
+            "label": "resume_game",
+            "x": 530,
+            "y": 326,
+            "text": "Resume",
+            "fontSize": "75px",
+            "fontStyle": "bold",
+            "color": "#000000",
+            "stroke": "#ffffffff",
+            "backgroundColor": "#ffffffff"
         }
     ],
     "plainObjects": [],

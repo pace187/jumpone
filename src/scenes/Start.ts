@@ -23,9 +23,7 @@ export default class Start extends Phaser.Scene {
 		background_solid_sand.setOrigin(0, 0);
 
 		// buttonStart
-		const buttonStart = this.add.image(640, 697, "buttonStart");
-		buttonStart.scaleX = 2;
-		buttonStart.scaleY = 2;
+		this.add.image(640, 697, "buttonStart");
 
 		// movementExplanation
 		const movementExplanation = this.add.text(147, 216, "", {});

@@ -27,14 +27,24 @@ export default class Pause extends Phaser.Scene {
 		this.add.image(1200, 80, "gear");
 
 		// home
-		const home = this.add.image(654, 488, "home");
+		const home = this.add.image(656, 671, "home");
 		home.scaleX = 2;
 		home.scaleY = 2;
 
 		// endRun
-		const endRun = this.add.text(539, 558, "", {});
+		const endRun = this.add.text(541, 741, "", {});
 		endRun.text = "End Run!";
 		endRun.setStyle({ "color": "#ff0404ff", "fontSize": "56px", "fontStyle": "bold" });
+
+		// background_solid_cloud
+		const background_solid_cloud = this.add.image(660, 366, "background_solid_cloud");
+		background_solid_cloud.scaleX = 0.6;
+		background_solid_cloud.scaleY = 0.2;
+
+		// resume_game
+		const resume_game = this.add.text(530, 326, "", {});
+		resume_game.text = "Resume";
+		resume_game.setStyle({ "backgroundColor": "#ffffffff", "color": "#000000", "fontSize": "75px", "fontStyle": "bold", "stroke": "#ffffffff" });
 
 		this.events.emit("scene-awake");
 	}
@@ -82,15 +92,18 @@ export default class Pause extends Phaser.Scene {
 			});
 		});
 
-		const game = this.children.list.find(
-			(child) => child instanceof Phaser.GameObjects.Image && child.texture.key === "gear"
-		) as Phaser.GameObjects.Image;
-
-		game.setInteractive({ useHandCursor: true });
-		game.on("pointerdown", () => {
+		const resumeHandler = () => {
 			this.scene.stop();
 			this.scene.resume('Level');
-		});
+		};
+
+		for (const child of this.children.list) {
+			if (child instanceof Phaser.GameObjects.Image &&
+				(child.texture.key === "gear" || child.texture.key === "background_solid_cloud")) {
+				child.setInteractive({ useHandCursor: true });
+				child.on("pointerdown", resumeHandler);
+			}
+		}
 	}
 
 	/* END-USER-CODE */
