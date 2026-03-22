@@ -281,6 +281,7 @@ export default class Level extends Phaser.Scene {
 	public arcadesprite_1!: Phaser.Physics.Arcade.Sprite;
 	private settings!: Phaser.GameObjects.Image;
 	private text_pause!: Phaser.GameObjects.Text;
+	private text_checkpoints!: Phaser.GameObjects.Text;
 	private spaceKey!: Phaser.Input.Keyboard.Key;
 	private colliderLevel!: Phaser.Physics.Arcade.Collider;
 	private leftKey!: Phaser.Input.Keyboard.Key;
@@ -305,6 +306,7 @@ export default class Level extends Phaser.Scene {
 	lastTelemetry = 0;
 	private telemetryInFlight = false;
 	private lastInputTime = -1;
+	private lastUpdateTime = 0;
 	private isAfk = false;
 	private readonly AFK_TIMEOUT = 10000; // 10 seconds
 
@@ -381,6 +383,7 @@ export default class Level extends Phaser.Scene {
 			this.collectedCheckpoints.add(key);
 			tile.setAlpha(0);
 			this.checkpointsReached++;
+			this.text_checkpoints.setText(`Checkpoints: ${this.checkpointsReached}/5`);
 		}, this);
 
 		this.finishLayer.setTileIndexCallback(130, (_sprite: Phaser.GameObjects.GameObject, tile: Phaser.Tilemaps.Tile) => {
@@ -400,17 +403,24 @@ export default class Level extends Phaser.Scene {
 		this.text_pause.setPosition(1050, 80);
 		this.text_pause.setOrigin(0, 0.5);
 
+		this.text_checkpoints = this.add.text(0, 0, 'Checkpoints: 0/6', { "fontSize": "32px", "stroke": "#000000ff", "strokeThickness": 3 });
+		this.text_checkpoints.setScrollFactor(0);
+		this.text_checkpoints.setPosition(20, 40);
+		this.text_checkpoints.setOrigin(0, 0.5);
+
 		this.physics.world.setBounds(0, 0, 1280, 7000);
 		this.physics.world.TILE_BIAS = 40;
 		this.sessionId = this.createSession();
 		this.arcadesprite_1.setBounce(0.7, 0);
 
 		this.input.keyboard!.on('keydown-ESC', () => {
+			this.updateTelemetry(this.lastUpdateTime, true, "Paused");
 			this.scene.pause();
 			this.scene.launch('Pause');
 		});
 
 		const pauseHandler = () => {
+			this.updateTelemetry(this.lastUpdateTime, true, "Paused");
 			this.scene.pause();
 			this.scene.launch('Pause');
 		};
@@ -439,6 +449,7 @@ export default class Level extends Phaser.Scene {
 	}
 
 	update(_time: number, delta: number) {
+		this.lastUpdateTime = _time;
 
 		// AFK detection — initialize from first update frame's clock
 		if (this.lastInputTime < 0) {
@@ -683,7 +694,7 @@ export default class Level extends Phaser.Scene {
 	private SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 	private get player() { return this.arcadesprite_1; }
 
-	private updateTelemetry(time: number, force = false) {
+	private updateTelemetry(time: number, force = false, stateOverride?: string) {
 		if (!this.player || !this.player.body) return;
 		if (this.telemetryInFlight && !force) return;
 
@@ -722,7 +733,7 @@ export default class Level extends Phaser.Scene {
 					input_left: this.leftKey.isDown ? 1 : 0,
 					input_right: this.rightKey.isDown ? 1 : 0,
 					input_jump: this.spaceKey.isDown ? 1 : 0,
-					state: state,
+					state: stateOverride ?? state,
 					timestamp: Date.now(),
 					...currentMlData
 				})
