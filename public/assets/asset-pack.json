@@ -417,6 +417,11 @@
                 "key": "coin_silver_side"
             },
             {
+                "url": "assets/continue.png",
+                "type": "image",
+                "key": "continue"
+            },
+            {
                 "url": "assets/game_icons_double/contrast.png",
                 "type": "image",
                 "key": "contrast"

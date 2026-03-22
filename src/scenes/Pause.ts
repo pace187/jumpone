@@ -19,32 +19,76 @@ export default class Pause extends Phaser.Scene {
 
 	editorCreate(): void {
 
-		// background_solid_sand
-		const background_solid_sand = this.add.tileSprite(0, 0, 1280, 1000, "background_solid_sand");
-		background_solid_sand.setOrigin(0, 0);
+		// background_color_trees
+		this.add.image(106, 744, "background_color_trees");
+
+		// background_fade_hills
+		const background_fade_hills = this.add.image(106, 245, "background_fade_hills");
+		background_fade_hills.flipY = true;
+
+		// background_color_trees_1
+		this.add.image(618, 744, "background_color_trees");
+
+		// background_fade_hills_1
+		const background_fade_hills_1 = this.add.image(618, 245, "background_fade_hills");
+		background_fade_hills_1.flipY = true;
+
+		// background_color_trees_2
+		this.add.image(1129, 744, "background_color_trees");
+
+		// background_fade_hills_2
+		const background_fade_hills_2 = this.add.image(1129, 245, "background_fade_hills");
+		background_fade_hills_2.flipY = true;
+
+		// text_1
+		const text_1 = this.add.text(432, 101, "", {});
+		text_1.text = "Paused!";
+		text_1.setStyle({ "fontSize": "100px", "fontStyle": "bold", "stroke": "#000000ff", "strokeThickness": 8 });
+
+		// hill_top_smile
+		const hill_top_smile = this.add.image(1219, 207, "hill_top_smile");
+		hill_top_smile.angle = -90;
+
+		// hud_player_yellow
+		this.add.image(73, 76, "hud_player_yellow");
+
+		// sign_exit
+		this.add.image(770, 647, "sign_exit");
+
+		// grass
+		this.add.image(892, 643, "grass");
+
+		// rock
+		this.add.image(147, 746, "rock");
+
+		// terrain_grass_block
+		this.add.image(142, 870, "terrain_grass_block");
+
+		// terrain_grass_horizontal_middle
+		this.add.image(773, 770, "terrain_grass_horizontal_middle");
+
+		// terrain_grass_horizontal_right
+		this.add.image(901, 770, "terrain_grass_horizontal_right");
+
+		// terrain_grass_horizontal_left
+		this.add.image(646, 770, "terrain_grass_horizontal_left");
 
 		// settings
 		this.add.image(1200, 80, "gear");
 
-		// home
-		const home = this.add.image(656, 671, "home");
-		home.scaleX = 2;
-		home.scaleY = 2;
+		// terrain_grass_block_1
+		this.add.image(444, 538, "terrain_grass_block");
 
-		// endRun
-		const endRun = this.add.text(541, 741, "", {});
-		endRun.text = "End Run!";
-		endRun.setStyle({ "color": "#ff0404ff", "fontSize": "56px", "fontStyle": "bold" });
+		// continue_sign
+		const continue_sign = this.add.image(440, 417, "continue");
+		continue_sign.scaleX = 0.06;
+		continue_sign.scaleY = 0.06;
 
-		// background_solid_cloud
-		const background_solid_cloud = this.add.image(660, 366, "background_solid_cloud");
-		background_solid_cloud.scaleX = 0.6;
-		background_solid_cloud.scaleY = 0.2;
+		// cactus
+		this.add.image(1201, 460, "cactus");
 
-		// resume_game
-		const resume_game = this.add.text(530, 326, "", {});
-		resume_game.text = "Resume";
-		resume_game.setStyle({ "backgroundColor": "#ffffffff", "color": "#000000", "fontSize": "75px", "fontStyle": "bold", "stroke": "#ffffffff" });
+		// terrain_grass_horizontal_left_1
+		this.add.image(1222, 584, "terrain_grass_horizontal_left");
 
 		this.events.emit("scene-awake");
 	}
@@ -62,33 +106,14 @@ export default class Pause extends Phaser.Scene {
 		});
 
 		const home = this.children.list.find(
-			(child) => child instanceof Phaser.GameObjects.Image && child.texture.key === "home"
+			(child) => child instanceof Phaser.GameObjects.Image && child.texture.key === "sign_exit"
 		) as Phaser.GameObjects.Image;
 
 		home.setInteractive({ useHandCursor: true });
 		home.on("pointerdown", () => {
 			const levelScene = this.scene.get("Level") as Level;
-
-			fetch(`${levelScene["SUPABASE_URL"]}/rest/v1/telemetry`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"apikey": levelScene["SUPABASE_ANON_KEY"],
-					"Authorization": `Bearer ${levelScene["SUPABASE_ANON_KEY"]}`,
-					"Prefer": "return=minimal"
-				},
-				body: JSON.stringify({
-					session_id: levelScene.sessionId,
-					pos_x: levelScene.arcadesprite_1.x,
-					pos_y: levelScene.arcadesprite_1.y,
-					vel_x: 0,
-					vel_y: 0,
-					checkpointReached: levelScene.checkpointsReached,
-					state: "Quit",
-					timestamp: Date.now()
-				})
-			}).finally(() => {
-				window.location.href = "index.html";
+			levelScene.sendQuitTelemetry().finally(() => {
+				window.location.href = "https://bachelor.openpace.org";
 			});
 		});
 
@@ -99,7 +124,7 @@ export default class Pause extends Phaser.Scene {
 
 		for (const child of this.children.list) {
 			if (child instanceof Phaser.GameObjects.Image &&
-				(child.texture.key === "gear" || child.texture.key === "background_solid_cloud")) {
+				(child.texture.key === "gear" || child.texture.key === "continue")) {
 				child.setInteractive({ useHandCursor: true });
 				child.on("pointerdown", resumeHandler);
 			}

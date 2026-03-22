@@ -13,16 +13,88 @@
     },
     "displayList": [
         {
-            "type": "TileSprite",
-            "id": "388d9c6e-e016-4ac3-9aec-ad9ea2f62276",
-            "label": "background_solid_sand",
+            "type": "Image",
+            "id": "26ed0911-c927-435e-96c9-2bc1acdbd0c3",
+            "label": "background_fade_trees",
             "texture": {
-                "key": "background_solid_sand"
+                "key": "background_fade_trees"
             },
-            "originX": 0,
-            "originY": 0,
-            "width": 1280,
-            "height": 1000
+            "x": -296,
+            "y": 747
+        },
+        {
+            "type": "Image",
+            "id": "cab62b17-a41f-42a1-a120-34d515e55f62",
+            "label": "background_fade_hills",
+            "texture": {
+                "key": "background_fade_hills"
+            },
+            "x": -296,
+            "y": 247,
+            "flipY": true
+        },
+        {
+            "type": "Image",
+            "id": "d09d322f-a23d-4e12-9a89-07943f18544d",
+            "label": "background_fade_trees_1",
+            "texture": {
+                "key": "background_fade_trees"
+            },
+            "x": 200,
+            "y": 747
+        },
+        {
+            "type": "Image",
+            "id": "58a7349f-625c-458a-b4d5-a15dc80fdb48",
+            "label": "background_fade_hills_1",
+            "texture": {
+                "key": "background_fade_hills"
+            },
+            "x": 200,
+            "y": 247,
+            "flipY": true
+        },
+        {
+            "type": "Image",
+            "id": "c4d36058-d114-49a8-9569-c5f227fbce77",
+            "label": "background_fade_trees_2",
+            "texture": {
+                "key": "background_fade_trees"
+            },
+            "x": 709,
+            "y": 747
+        },
+        {
+            "type": "Image",
+            "id": "8ea87d31-c03c-4f03-b151-cea65cf892bb",
+            "label": "background_fade_hills_2",
+            "texture": {
+                "key": "background_fade_hills"
+            },
+            "x": 709,
+            "y": 247,
+            "flipY": true
+        },
+        {
+            "type": "Image",
+            "id": "666c74b3-08c2-4ffb-af91-9dfdbc82d105",
+            "label": "background_fade_trees_3",
+            "texture": {
+                "key": "background_fade_trees"
+            },
+            "x": 1205,
+            "y": 747
+        },
+        {
+            "type": "Image",
+            "id": "99b0a248-6086-4385-88b9-01a1da09c9fe",
+            "label": "background_fade_hills_3",
+            "texture": {
+                "key": "background_fade_hills"
+            },
+            "x": 1205,
+            "y": 247,
+            "flipY": true
         },
         {
             "type": "Image",
@@ -32,18 +104,100 @@
                 "key": "buttonStart"
             },
             "x": 640,
-            "y": 697
+            "y": 600,
+            "tintTopLeft": "#05c412",
+            "tintBottomRight": "#000000"
         },
         {
             "type": "Text",
             "id": "0189ca7f-2984-496a-ab2d-98f40b4fecac",
             "label": "movementExplanation",
-            "x": 147,
-            "y": 216,
-            "text": "hold SPACEBAR to charge your Jump\n\nLeftKey/RightKey: Go Left/Go Right\n\nESC:              Pause",
+            "x": 139,
+            "y": 102,
+            "text": "hold SPACEBAR to charge your Jump\n\n\nLeftKey/RightKey: Go Left/Go Right\n\n\nESC:              Pause",
             "fontSize": "50px",
             "fontStyle": "bold",
             "color": "#000000ff"
+        },
+        {
+            "type": "Image",
+            "id": "751b04ab-af0d-4986-86e5-a5cfc42fe07b",
+            "label": "bush",
+            "texture": {
+                "key": "bush"
+            },
+            "x": 268,
+            "y": 941
+        },
+        {
+            "type": "Image",
+            "id": "46c1f42c-0cc4-4fa5-a6f4-ea088f20e42e",
+            "label": "cactus",
+            "texture": {
+                "key": "cactus"
+            },
+            "x": 1077,
+            "y": 945
+        },
+        {
+            "type": "Image",
+            "id": "82d3ca77-407c-447c-b9b6-0201745e9d75",
+            "label": "mushroom_red",
+            "texture": {
+                "key": "mushroom_red"
+            },
+            "x": 1151,
+            "y": 355
+        },
+        {
+            "type": "Image",
+            "id": "ad33a4a6-2cef-4737-8c1e-3b0b5d69af48",
+            "label": "terrain_grass_block",
+            "texture": {
+                "key": "terrain_grass_block"
+            },
+            "x": 1150,
+            "y": 479
+        },
+        {
+            "type": "Image",
+            "id": "d7a4f61b-f44f-47e7-8c46-d2d2fdaeacca",
+            "label": "hill_top_smile",
+            "texture": {
+                "key": "hill_top_smile"
+            },
+            "x": 265,
+            "y": 576
+        },
+        {
+            "type": "Image",
+            "id": "2c47c833-3b49-4359-9c69-d208beff0585",
+            "label": "terrain_grass_horizontal_overhang_left",
+            "texture": {
+                "key": "terrain_grass_horizontal_overhang_left"
+            },
+            "x": 201,
+            "y": 701
+        },
+        {
+            "type": "Image",
+            "id": "77c1b0f7-f6b7-4e27-a26d-6f6987b62dcc",
+            "label": "terrain_grass_horizontal_overhang_right",
+            "texture": {
+                "key": "terrain_grass_horizontal_overhang_right"
+            },
+            "x": 328,
+            "y": 701
+        },
+        {
+            "type": "Image",
+            "id": "a61204cc-6d7a-4609-918b-7619ea3548e9",
+            "label": "hud_player_yellow",
+            "texture": {
+                "key": "hud_player_yellow"
+            },
+            "x": 78,
+            "y": 78
         }
     ],
     "plainObjects": [],

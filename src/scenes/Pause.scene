@@ -13,16 +13,170 @@
     },
     "displayList": [
         {
-            "type": "TileSprite",
-            "id": "588bb81b-26f2-44a2-bc62-3c8aaef8e5af",
-            "label": "background_solid_sand",
+            "type": "Image",
+            "id": "b637ef67-fdc7-4168-8955-94f10cf076dc",
+            "label": "background_color_trees",
             "texture": {
-                "key": "background_solid_sand"
+                "key": "background_color_trees"
             },
-            "originX": 0,
-            "originY": 0,
-            "width": 1280,
-            "height": 1000
+            "x": 106,
+            "y": 744
+        },
+        {
+            "type": "Image",
+            "id": "01a3b395-a380-4d84-bad4-917956631768",
+            "label": "background_fade_hills",
+            "texture": {
+                "key": "background_fade_hills"
+            },
+            "x": 106,
+            "y": 245,
+            "flipY": true
+        },
+        {
+            "type": "Image",
+            "id": "a97ed309-f1e6-4f2f-aba4-555786ce17e6",
+            "label": "background_color_trees_1",
+            "texture": {
+                "key": "background_color_trees"
+            },
+            "x": 618,
+            "y": 744
+        },
+        {
+            "type": "Image",
+            "id": "32b18a32-dc78-4b65-a639-a3174aa22b60",
+            "label": "background_fade_hills_1",
+            "texture": {
+                "key": "background_fade_hills"
+            },
+            "x": 618,
+            "y": 245,
+            "flipY": true
+        },
+        {
+            "type": "Image",
+            "id": "832ca73f-2fe1-4a44-9a81-e2b418fceed2",
+            "label": "background_color_trees_2",
+            "texture": {
+                "key": "background_color_trees"
+            },
+            "x": 1129,
+            "y": 744
+        },
+        {
+            "type": "Image",
+            "id": "e25d68e0-b48c-4bc3-a3ef-8f210e40fe27",
+            "label": "background_fade_hills_2",
+            "texture": {
+                "key": "background_fade_hills"
+            },
+            "x": 1129,
+            "y": 245,
+            "flipY": true
+        },
+        {
+            "type": "Text",
+            "id": "f7451714-c9b5-46ba-b649-1d41d8dcc0d7",
+            "label": "text_1",
+            "x": 432,
+            "y": 101,
+            "text": "Paused!",
+            "fontSize": "100px",
+            "fontStyle": "bold",
+            "stroke": "#000000ff",
+            "strokeThickness": 8
+        },
+        {
+            "type": "Image",
+            "id": "c038e25f-cdc4-4144-94fe-1c11b1d58146",
+            "label": "hill_top_smile",
+            "texture": {
+                "key": "hill_top_smile"
+            },
+            "x": 1219,
+            "y": 207,
+            "angle": -90
+        },
+        {
+            "type": "Image",
+            "id": "7bee51bb-e0cb-47ec-883a-ecbb7bf260da",
+            "label": "hud_player_yellow",
+            "texture": {
+                "key": "hud_player_yellow"
+            },
+            "x": 73,
+            "y": 76
+        },
+        {
+            "type": "Image",
+            "id": "11ac00e7-8b46-4fd4-92e2-69c165ee9228",
+            "label": "sign_exit",
+            "texture": {
+                "key": "sign_exit"
+            },
+            "x": 770,
+            "y": 647
+        },
+        {
+            "type": "Image",
+            "id": "98977fa1-f905-4670-b2a2-aa788832dbd2",
+            "label": "grass",
+            "texture": {
+                "key": "grass"
+            },
+            "x": 892,
+            "y": 643
+        },
+        {
+            "type": "Image",
+            "id": "fd18e64a-eaa5-478e-8795-8808feb04114",
+            "label": "rock",
+            "texture": {
+                "key": "rock"
+            },
+            "x": 147,
+            "y": 746
+        },
+        {
+            "type": "Image",
+            "id": "e351a82a-e7c6-4c50-919f-6207b5318b6a",
+            "label": "terrain_grass_block",
+            "texture": {
+                "key": "terrain_grass_block"
+            },
+            "x": 142,
+            "y": 870
+        },
+        {
+            "type": "Image",
+            "id": "7df5992b-0583-4aeb-a810-57f55b9497d9",
+            "label": "terrain_grass_horizontal_middle",
+            "texture": {
+                "key": "terrain_grass_horizontal_middle"
+            },
+            "x": 773,
+            "y": 770
+        },
+        {
+            "type": "Image",
+            "id": "565a3e2a-5f4a-4019-8dcb-2b2cdd3d787d",
+            "label": "terrain_grass_horizontal_right",
+            "texture": {
+                "key": "terrain_grass_horizontal_right"
+            },
+            "x": 901,
+            "y": 770
+        },
+        {
+            "type": "Image",
+            "id": "0f9469dc-283f-4d0b-a9b9-f10adcd39fa7",
+            "label": "terrain_grass_horizontal_left",
+            "texture": {
+                "key": "terrain_grass_horizontal_left"
+            },
+            "x": 646,
+            "y": 770
         },
         {
             "type": "Image",
@@ -36,51 +190,45 @@
         },
         {
             "type": "Image",
-            "id": "ace3b872-7e51-4ce3-aa1d-f32cc18a4c8f",
-            "label": "home",
+            "id": "7902fc82-35ae-477c-abaa-32a3074db3c0",
+            "label": "terrain_grass_block_1",
             "texture": {
-                "key": "home"
+                "key": "terrain_grass_block"
             },
-            "x": 656,
-            "y": 671,
-            "scaleX": 2,
-            "scaleY": 2
-        },
-        {
-            "type": "Text",
-            "id": "9c6c0ea8-040e-444a-a58c-9744d65602a7",
-            "label": "endRun",
-            "x": 541,
-            "y": 741,
-            "text": "End Run!",
-            "fontSize": "56px",
-            "fontStyle": "bold",
-            "color": "#ff0404ff"
+            "x": 444,
+            "y": 538
         },
         {
             "type": "Image",
-            "id": "3c8ab722-79d5-45c7-8898-443ce7db6bbb",
-            "label": "background_solid_cloud",
+            "id": "a88bf790-847b-4d8a-81e9-248497dd530e",
+            "label": "continue_sign",
             "texture": {
-                "key": "background_solid_cloud"
+                "key": "continue"
             },
-            "x": 660,
-            "y": 366,
-            "scaleX": 0.6,
-            "scaleY": 0.2
+            "x": 440,
+            "y": 417,
+            "scaleX": 0.06,
+            "scaleY": 0.06
         },
         {
-            "type": "Text",
-            "id": "c0ef0490-2e0d-4f67-8008-e882a66716fb",
-            "label": "resume_game",
-            "x": 530,
-            "y": 326,
-            "text": "Resume",
-            "fontSize": "75px",
-            "fontStyle": "bold",
-            "color": "#000000",
-            "stroke": "#ffffffff",
-            "backgroundColor": "#ffffffff"
+            "type": "Image",
+            "id": "1c24f3da-da52-4072-b5a5-87e1e80376de",
+            "label": "cactus",
+            "texture": {
+                "key": "cactus"
+            },
+            "x": 1201,
+            "y": 460
+        },
+        {
+            "type": "Image",
+            "id": "c0518804-0407-42d3-9eea-a562bfdce30a",
+            "label": "terrain_grass_horizontal_left_1",
+            "texture": {
+                "key": "terrain_grass_horizontal_left"
+            },
+            "x": 1222,
+            "y": 584
         }
     ],
     "plainObjects": [],

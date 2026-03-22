@@ -18,17 +18,67 @@ export default class Start extends Phaser.Scene {
 
 	editorCreate(): void {
 
-		// background_solid_sand
-		const background_solid_sand = this.add.tileSprite(0, 0, 1280, 1000, "background_solid_sand");
-		background_solid_sand.setOrigin(0, 0);
+		// background_fade_trees
+		this.add.image(-296, 747, "background_fade_trees");
+
+		// background_fade_hills
+		const background_fade_hills = this.add.image(-296, 247, "background_fade_hills");
+		background_fade_hills.flipY = true;
+
+		// background_fade_trees_1
+		this.add.image(200, 747, "background_fade_trees");
+
+		// background_fade_hills_1
+		const background_fade_hills_1 = this.add.image(200, 247, "background_fade_hills");
+		background_fade_hills_1.flipY = true;
+
+		// background_fade_trees_2
+		this.add.image(709, 747, "background_fade_trees");
+
+		// background_fade_hills_2
+		const background_fade_hills_2 = this.add.image(709, 247, "background_fade_hills");
+		background_fade_hills_2.flipY = true;
+
+		// background_fade_trees_3
+		this.add.image(1205, 747, "background_fade_trees");
+
+		// background_fade_hills_3
+		const background_fade_hills_3 = this.add.image(1205, 247, "background_fade_hills");
+		background_fade_hills_3.flipY = true;
 
 		// buttonStart
-		this.add.image(640, 697, "buttonStart");
+		const buttonStart = this.add.image(640, 600, "buttonStart");
+		buttonStart.tintTopLeft = 377874;
+		buttonStart.tintBottomRight = 0;
 
 		// movementExplanation
-		const movementExplanation = this.add.text(147, 216, "", {});
-		movementExplanation.text = "hold SPACEBAR to charge your Jump\n\nLeftKey/RightKey: Go Left/Go Right\n\nESC:              Pause";
+		const movementExplanation = this.add.text(139, 102, "", {});
+		movementExplanation.text = "hold SPACEBAR to charge your Jump\n\n\nLeftKey/RightKey: Go Left/Go Right\n\n\nESC:              Pause";
 		movementExplanation.setStyle({ "color": "#000000ff", "fontSize": "50px", "fontStyle": "bold" });
+
+		// bush
+		this.add.image(268, 941, "bush");
+
+		// cactus
+		this.add.image(1077, 945, "cactus");
+
+		// mushroom_red
+		this.add.image(1151, 355, "mushroom_red");
+
+		// terrain_grass_block
+		this.add.image(1150, 479, "terrain_grass_block");
+
+		// hill_top_smile
+		this.add.image(265, 576, "hill_top_smile");
+
+		// terrain_grass_horizontal_overhang_left
+		this.add.image(201, 701, "terrain_grass_horizontal_overhang_left");
+
+		// terrain_grass_horizontal_overhang_right
+		this.add.image(328, 701, "terrain_grass_horizontal_overhang_right");
+
+		// hud_player_yellow
+		this.add.image(78, 78, "hud_player_yellow");
 
 		this.events.emit("scene-awake");
 	}
