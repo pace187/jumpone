@@ -4,9 +4,26 @@ JumpOne is a 2D platformer game developed as part of a bachelor thesis. The game
 
 ## Bachelor Thesis
 
-This project serves as the practical component of a bachelor thesis investigating **player churn prediction based on movement telemetry data**. The game collects in-game movement data (e.g., player positions, jump patterns, directional changes) and uses this telemetry to analyze and predict whether a player is likely to stop playing (churn). The goal is to identify behavioral patterns in player movement that correlate with disengagement, enabling early intervention strategies to improve player retention.
+This project serves as the practical component of a bachelor thesis investigating **level completion prediction based on movement telemetry data**. The game collects in-game movement data and uses it to predict whether a player will be able to finish the level, based on their skill level.
 
-Phyton AI part is work in progress
+The prediction model uses the following telemetry features:
+
+| Feature | Description |
+|---------|-------------|
+| `jumpSuccessRate` | Ratio of successful to attempted jumps |
+| `jumpsFailed` | Number of failed jumps |
+| `totalFalls` | Total number of falls |
+| `avgFallDistance` | Average distance fallen per fall |
+| `maxFallDistance` | Longest single fall |
+| `distancePerJump` | Average horizontal distance covered per successful jump |
+| `avgTimeBetweenJumps` | Average time the player spends planning before jumping |
+| `totalJumpsAttempted` | Total jump attempts |
+| `sessionDuration_sec` | Time spent in the session |
+| `checkpointsReached` | Number of checkpoints the player has reached |
+
+Based on these features, a Python ML model predicts the likelihood of the player **not being able to finish the level**. The goal is to identify low-skill players early and adapt the game accordingly.
+
+The Python AI part is a work in progress.
 
 ## Requirements
 
@@ -24,7 +41,7 @@ Phyton AI part is work in progress
 
 After cloning the repo, run `npm install` from your project directory.
 
-To start the local development server use `npm run dev`.
+To start the local development server run `npm start`.
 
 ## Deploying to Production
 
@@ -38,6 +55,8 @@ This will take your game code and build it into a single bundle, ready for deplo
 - **Language:** TypeScript
 - **Bundler:** Vite
 - **Editor:** [Phaser Editor v4](https://phaser.io/editor)
+- **Backend/DB:** Supabase (telemetry storage)
+- **ML:** Python (skill-based level completion prediction)
 
 ## Credits
 
