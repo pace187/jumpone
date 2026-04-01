@@ -4,6 +4,7 @@
 /* START OF COMPILED CODE */
 
 /* START-USER-IMPORTS */
+import { predictWinProbability } from './WinPredictor';
 /* END-USER-IMPORTS */
 
 export default class Level extends Phaser.Scene {
@@ -338,6 +339,9 @@ export default class Level extends Phaser.Scene {
 	// Debug
 	private readonly SHOW_TELEMETRY_DEBUG = false;
 	private debugText!: Phaser.GameObjects.Text;
+	
+	// Live ML
+	private text_winProb!: Phaser.GameObjects.Text;
 
 	create() {
 		this.editorCreate();
@@ -406,6 +410,12 @@ export default class Level extends Phaser.Scene {
 		this.text_checkpoints.setScrollFactor(0);
 		this.text_checkpoints.setPosition(20, 40);
 		this.text_checkpoints.setOrigin(0, 0.5);
+
+		// ML Predictor UI Display
+		this.text_winProb = this.add.text(0, 0, 'Win Probability: 50.0%', { "fontSize": "32px", "color": "#00ff00", "stroke": "#000000ff", "strokeThickness": 3 });
+		this.text_winProb.setScrollFactor(0);
+		this.text_winProb.setPosition(20, 80);
+		this.text_winProb.setOrigin(0, 0.5);
 
 		this.physics.world.setBounds(0, 0, 1280, 7000);
 		this.physics.world.TILE_BIAS = 40;
@@ -647,6 +657,35 @@ export default class Level extends Phaser.Scene {
 		}
 
 		this.updateTelemetry(_time);
+
+		// Run Live ML Prediction (approximately every 1s)
+		if (Math.floor(_time) % 1000 < delta) {
+			const data = this.aggregateSessionData();
+			const body = this.player?.body as Phaser.Physics.Arcade.Body | undefined;
+			if (body) {
+				const velocityMag = Math.round(Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2));
+				const ml_features = [
+					data.jumpSuccessRate,
+					data.jumpsFailed,
+					data.totalFalls,
+					data.maxFallDistance,
+					data.distancePerJump,
+					data.avgTimeBetweenJumps,
+					data.totalJumpsAttempted,
+					velocityMag,
+					this.player.x,
+					this.player.y
+				];
+				
+				const prob = predictWinProbability(ml_features);
+				const pct = (prob * 100).toFixed(1);
+				this.text_winProb.setText(`Win Probability: ${pct}%`);
+				
+				if (prob < 0.3) this.text_winProb.setColor("#ff0000");
+				else if (prob > 0.7) this.text_winProb.setColor("#00ff00");
+				else this.text_winProb.setColor("#ffff00");
+			}
+		}
 	}
 
 	private applyJump() {
