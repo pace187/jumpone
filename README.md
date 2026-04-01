@@ -21,9 +21,39 @@ The prediction model uses the following telemetry features:
 | `sessionDuration_sec` | Time spent in the session |
 | `checkpointsReached` | Number of checkpoints the player has reached |
 
-Based on these features, a Python ML model predicts the likelihood of the player **not being able to finish the level**. The goal is to identify low-skill players early and adapt the game accordingly.
+Based on these features, a Python ML model predicts the likelihood of the player **not being able to finish the level**. The goal is to identify low-skill players early and predict frustration in real-time.
 
-The Python AI part is a work in progress.
+### ML Pipeline (Live Prediction)
+
+The ML pipeline is located in the `ml_pipeline/` directory. It uses an **XGBoost classifier** to evaluate player skill based on session aggregates. The trained model is exported natively to Javascript using `m2cgen` into `src/scenes/WinPredictor.ts`, allowing the Phaser game to evaluate the win probability live in the browser without needing a backend server.
+
+#### Running the ML Pipeline
+Ensure you have Python installed, then run the following from the root directory:
+
+```bash
+cd ml_pipeline
+pip install -r requirements.txt
+
+# To generate feature-by-feature Gaussian distribution validation plots:
+python gaussian_check.py
+
+# To generate an overall PCA-based Gaussian distribution plot for the entire dataset:
+python overall_skill_distribution.py
+
+# To train the XGBoost model and export the logic natively to the game:
+python train_xgboost.py
+```
+
+#### Preventing Bias (Subsampling)
+If one game session contains much more recorded metrics than the another ones, the machine learning model will become statistically biased towards the playstyle of the longer session. 
+
+To easily prevent overrepresentation, all three Python scripts accept a `--max-rows` argument. This randomly extracts a maximum set limit of rows from each session to equalize them, while perfectly retaining their chronological order.
+
+```bash
+# Example: Limit every session to at most 1,000 random data points
+python train_xgboost.py --max-rows 1000
+python overall_skill_distribution.py --max-rows 1000
+```
 
 ## Requirements
 
