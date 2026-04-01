@@ -28,3 +28,6 @@ dist-ssr
 ._README.md
 ._.gitignore
 ._*
+__pycache__
+*.png
+*.sql
