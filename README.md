@@ -1,6 +1,7 @@
 # JumpOne
 
-JumpOne is a 2D platformer game developed as part of a bachelor thesis. The game is built with Phaser 3 and TypeScript using the Phaser Editor workflow. Website: https://bachelor.openpace.org/
+JumpOne is a 2D platformer game developed as part of a bachelor thesis. The game is built with Phaser 3 and TypeScript using the Phaser Editor workflow. 
+Website: https://bachelor.openpace.org/
 
 ## Bachelor Thesis
 
