@@ -1,37 +1,63 @@
 import os
 import pandas as pd
 import io
+import re
+
+COLUMNS = [
+    "id", "created_at", "session_id", "pos_x", "pos_y", "vel_x", "vel_y",
+    "velocity_magnitude", "input_left", "input_right", "input_jump", "state",
+    "timestamp", "jumpSuccessRate", "jumpsFailed", "avgFallDistance",
+    "maxFallDistance", "distancePerJump", "avgTimeBetweenJumps",
+    "totalJumpsAttempted", "sessionDuration_sec", "totalFalls"
+]
 
 def parse_sql_to_df(filepath):
     print(f"Reading {filepath}...")
     with open(filepath, 'r') as f:
         content = f.read()
 
-    start_idx = content.find('VALUES (')
-    if start_idx == -1:
-        raise ValueError("Could not find 'VALUES (' in the SQL file")
-    
-    data_str = content[start_idx + 8 :].strip()
-    if data_str.endswith(');'):
-        data_str = data_str[:-2]
-    elif data_str.endswith(')'):
-        data_str = data_str[:-1]
-    
-    data_str = data_str.replace("), (", "\n")
-    data_str = data_str.replace("'", "")
-    
-    columns = [
-        "id", "created_at", "session_id", "pos_x", "pos_y", "vel_x", "vel_y", 
-        "velocity_magnitude", "input_left", "input_right", "input_jump", "state", 
-        "timestamp", "jumpSuccessRate", "jumpsFailed", "avgFallDistance", 
-        "maxFallDistance", "distancePerJump", "avgTimeBetweenJumps", 
-        "totalJumpsAttempted", "sessionDuration_sec", "totalFalls"
-    ]
-    
-    print("Parsing CSV data...")
-    df = pd.read_csv(io.StringIO(data_str), names=columns, header=None)
-    df['state'] = df['state'].str.strip()
+    # Unterstützt beide Formate:
+    # 1. Original (Supabase-Export): ... VALUES (\n(62171, ...)
+    # 2. Nach session_overview.py-Filter: INSERT INTO ...\n(col_list),\n(62171, ...)
+    # Strategie: erstes Datentupel finden – beginnt immer mit '(<integer>,'
+    m = re.search(r'\(\s*\d+\s*,', content)
+    if m is None:
+        raise ValueError("Konnte keinen Datenbeginn in der SQL-Datei finden.")
+
+    data_str = content[m.start():].strip()
+
+    # Abschließendes Semikolon entfernen
+    if data_str.endswith(';'):
+        data_str = data_str[:-1].rstrip()
+
+    # Tupel-Trennzeichen normalisieren → Zeilenumbrüche
+    data_str = re.sub(r'\)\s*,\s*\n?\s*\(', '\n', data_str)
+
+    # Umschließende Klammern jeder Zeile entfernen
+    lines = []
+    for line in data_str.splitlines():
+        line = line.strip()
+        if line.startswith('('):
+            line = line[1:]
+        if line.endswith(')'):
+            line = line[:-1]
+        if line:
+            lines.append(line)
+
+    # SQL-Anführungszeichen entfernen ('Idle' → Idle)
+    clean = "\n".join(lines).replace("'", "")
+
+    print(f"Parsing CSV data... ({len(lines)} Zeilen)")
+    df = pd.read_csv(io.StringIO(clean), names=COLUMNS, header=None)
+    df['state'] = df['state'].astype(str).str.strip()
     return df
+
+
+CUMULATIVE_FEATURES = [
+    'jumpSuccessRate', 'jumpsFailed', 'totalFalls', 'avgFallDistance',
+    'maxFallDistance', 'distancePerJump', 'avgTimeBetweenJumps', 'totalJumpsAttempted',
+]
+SNAPSHOT_FEATURES = ['velocity_magnitude', 'pos_x', 'pos_y']
 
 def preprocess_data(df, max_rows_per_session=None):
     print("Sorting and propagating labels...")
@@ -52,5 +78,12 @@ def preprocess_data(df, max_rows_per_session=None):
         )
         # Restore original chronological sorting by numeric index
         df = df.sort_index()
-    
+
     return df
+
+def aggregate_per_session(df):
+    """One row per session: cumulative cols from last row, snapshot cols averaged."""
+    df_sorted = df.sort_values(['session_id', 'timestamp'])
+    last_rows = df_sorted.groupby('session_id')[CUMULATIVE_FEATURES + ['Will_Finish']].last()
+    mean_rows = df_sorted.groupby('session_id')[SNAPSHOT_FEATURES].mean()
+    return last_rows.join(mean_rows)

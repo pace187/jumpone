@@ -1,9 +1,8 @@
 import os
-import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
-from data_parser import parse_sql_to_df, preprocess_data
+from data_parser import parse_sql_to_df, preprocess_data, aggregate_per_session
 
 def check_gaussian(df, features):
     print("--- Gaussian Distribution Check ---")
@@ -47,19 +46,14 @@ def check_gaussian(df, features):
         plt.close()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--max-rows', type=int, default=0, help="Max rows per session (0 to disable)")
-    args = parser.parse_args()
-
     sql_path = "../telemetry_rows.sql"
     if not os.path.exists(sql_path):
         print(f"File not found: {sql_path}")
         exit(1)
-        
+
     df_raw = parse_sql_to_df(sql_path)
-    
-    max_rows = args.max_rows if args.max_rows > 0 else None
-    df = preprocess_data(df_raw, max_rows_per_session=max_rows)
+    df = preprocess_data(df_raw)
+    df = aggregate_per_session(df)
     
     # Features to analyze
     numerical_features = [

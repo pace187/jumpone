@@ -3,7 +3,10 @@ import xgboost as xgb
 import m2cgen as m2c
 import argparse
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, f1_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import StandardScaler
 from data_parser import parse_sql_to_df, preprocess_data
 
 FEATURES = [
@@ -41,23 +44,50 @@ def main():
     y = df[TARGET]
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    print(f"Training XGBoost Classifier on {len(X_train)} samples...")
+
+    # --- Baseline: Logistic Regression ---
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    lr = LogisticRegression(max_iter=1000, random_state=42)
+    lr.fit(X_train_scaled, y_train)
+    lr_acc = lr.score(X_test_scaled, y_test)
+    lr_f1 = f1_score(y_test, lr.predict(X_test_scaled), zero_division=0)
+    lr_js = m2c.export_to_javascript(lr)
+    print(f"\n[Logistic Regression]  Accuracy: {lr_acc:.3f}  F1: {lr_f1:.3f}  JS size: {len(lr_js):,} chars")
+
+    # --- Baseline: Decision Tree ---
+    dt = DecisionTreeClassifier(max_depth=4, random_state=42)
+    dt.fit(X_train, y_train)
+    dt_acc = dt.score(X_test, y_test)
+    dt_f1 = f1_score(y_test, dt.predict(X_test), zero_division=0)
+    dt_js = m2c.export_to_javascript(dt)
+    print(f"[Decision Tree]        Accuracy: {dt_acc:.3f}  F1: {dt_f1:.3f}  JS size: {len(dt_js):,} chars")
+
+    # --- Main model: XGBoost ---
+    print(f"\nTraining XGBoost Classifier on {len(X_train)} samples...")
     # Keep tree shallow so JS code doesn't become gigantic
     model = xgb.XGBClassifier(
-        n_estimators=30, 
-        max_depth=3, 
+        n_estimators=30,
+        max_depth=3,
         learning_rate=0.1,
-        random_state=42
+        random_state=42,
+        base_score=0.5  # explizit setzen für m2cgen-Kompatibilität
     )
     model.fit(X_train, y_train)
+
+    xgb_acc = model.score(X_test, y_test)
+    xgb_f1 = f1_score(y_test, model.predict(X_test), zero_division=0)
+    xgb_js = m2c.export_to_javascript(model)
+    print(f"[XGBoost]              Accuracy: {xgb_acc:.3f}  F1: {xgb_f1:.3f}  JS size: {len(xgb_js):,} chars")
+    print(f"\n=> XGBoost vs. Logistic Regression: Δ Accuracy {xgb_acc - lr_acc:+.3f}, Δ F1 {xgb_f1 - lr_f1:+.3f}")
+    print(f"=> XGBoost vs. Decision Tree:        Δ Accuracy {xgb_acc - dt_acc:+.3f}, Δ F1 {xgb_f1 - dt_f1:+.3f}")
+    score = xgb_acc
     
-    score = model.score(X_test, y_test)
-    print(f"Test Accuracy: {score:.3f}")
-    
-    # Export to JavaScript using m2cgen
-    print("Exporting model to JavaScript...")
-    code = m2c.export_to_javascript(model)
+    # Export XGBoost to JavaScript using m2cgen
+    print("\nExporting XGBoost model to JavaScript...")
+    code = xgb_js
     
     feature_list_str = ", ".join(f"[{i}] {name}" for i, name in enumerate(FEATURES))
     
