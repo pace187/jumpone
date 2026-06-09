@@ -1,8 +1,8 @@
 """
 visualize_results.py
-Generiert publikationsreife Grafiken für die Bachelorarbeit/Seminararbeit.
+Generates publication-quality figures for the bachelor thesis.
 
-Ausgabe: ml_pipeline/plots/
+Output: ml_pipeline/plots/
 """
 
 import os
@@ -60,9 +60,9 @@ FEATURE_LABELS = {
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
-# ── Daten laden & Modelle trainieren ────────────────────────────────────────
+# ── Load data & train models ────────────────────────────────────────────────
 def load_and_train():
-    print("Lade Daten und trainiere Modelle...")
+    print("Loading data and training models...")
     df_raw = parse_sql_to_df(SQL_PATH)
     df     = preprocess_data(df_raw)[FEATURES + [TARGET]].fillna(0)
 
@@ -91,7 +91,7 @@ def load_and_train():
     return (lr, dt, model), (X_train, X_test, X_train_sc, X_test_sc, y_train, y_test)
 
 
-# ── Plot 1: Modellvergleich (Accuracy + F1) ──────────────────────────────────
+# ── Plot 1: Model Comparison (Accuracy + F1) ───────────────────────────────
 def plot_model_comparison(models, data):
     lr, dt, xgb_m = models
     X_train, X_test, X_train_sc, X_test_sc, y_train, y_test = data
@@ -122,7 +122,7 @@ def plot_model_comparison(models, data):
 
     ax.set_ylim(0, 1.08)
     ax.set_ylabel("Score")
-    ax.set_title("Modellvergleich: Accuracy & F1-Score")
+    ax.set_title("Model Comparison: Accuracy & F1-Score")
     ax.set_xticks(x)
     ax.set_xticklabels(names)
     ax.legend()
@@ -135,7 +135,7 @@ def plot_model_comparison(models, data):
     print(f"  ✓ {path}")
 
 
-# ── Plot 2: ROC-Kurven ───────────────────────────────────────────────────────
+# ── Plot 2: ROC Curves ──────────────────────────────────────────────────────
 def plot_roc_curves(models, data):
     lr, dt, xgb_m = models
     _, X_test, _, X_test_sc, _, y_test = data
@@ -154,10 +154,10 @@ def plot_roc_curves(models, data):
         ax.plot(fpr, tpr, color=color, lw=2,
                 label=f"{name}  (AUC = {roc_auc:.3f})")
 
-    ax.plot([0, 1], [0, 1], "k--", lw=1, alpha=0.5, label="Zufalls-Klassifikator")
+    ax.plot([0, 1], [0, 1], "k--", lw=1, alpha=0.5, label="Random Classifier")
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
-    ax.set_title("ROC-Kurven – Modellvergleich")
+    ax.set_title("ROC Curves – Model Comparison")
     ax.legend(loc="lower right")
     ax.grid(alpha=0.3)
 
@@ -195,7 +195,7 @@ def plot_feature_importance(models, data):
     print(f"  ✓ {path}")
 
 
-# ── Plot 4: Konfusionsmatrix (XGBoost) ──────────────────────────────────────
+# ── Plot 4: Confusion Matrix (XGBoost) ─────────────────────────────────────
 def plot_confusion_matrix(models, data):
     _, _, xgb_m = models
     _, X_test, _, _, _, y_test = data
@@ -204,12 +204,12 @@ def plot_confusion_matrix(models, data):
     fig, ax = plt.subplots(figsize=(5, 4))
     disp = ConfusionMatrixDisplay(
         confusion_matrix=cm,
-        display_labels=["Nicht beendet (0)", "Beendet (1)"]
+        display_labels=["Not Finished (0)", "Finished (1)"]
     )
     disp.plot(ax=ax, colorbar=False, cmap="Blues")
-    ax.set_title("Konfusionsmatrix – XGBoost")
-    ax.set_xlabel("Vorhergesagte Klasse")
-    ax.set_ylabel("Wahre Klasse")
+    ax.set_title("Confusion Matrix – XGBoost")
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("True Label")
     plt.tight_layout()
 
     path = f"{OUT_DIR}/confusion_matrix.png"
@@ -218,9 +218,9 @@ def plot_confusion_matrix(models, data):
     print(f"  ✓ {path}")
 
 
-# ── Plot 5: Win-Probability über Zeit (eine Beispiel-Session) ───────────────
+# ── Plot 5: Win Probability Over Time (example sessions) ───────────────────
 def plot_win_probability_over_time(models, data):
-    """Zeigt wie sich die Gewinnwahrscheinlichkeit im Spielverlauf entwickelt."""
+    """Shows how estimated win probability evolves throughout a session."""
     _, _, xgb_m = models
     X_train, X_test, *_ = data
     y_train = data[4]
@@ -228,33 +228,33 @@ def plot_win_probability_over_time(models, data):
     df_raw = parse_sql_to_df(SQL_PATH)
     df     = preprocess_data(df_raw).fillna(0)
 
-    # Wähle eine Finished-Session und eine Quit-Session
+    # Pick one finished session and one quit session
     finished_sessions = df[df['Will_Finish'] == 1]['session_id'].unique()
     quit_sessions     = df[df['Will_Finish'] == 0]['session_id'].unique()
 
     if len(finished_sessions) == 0 or len(quit_sessions) == 0:
-        print("  ⚠ Nicht genug Sessions für Win-Probability-Plot.")
+        print("  ⚠ Not enough sessions for win-probability plot.")
         return
 
     fig, ax = plt.subplots(figsize=(10, 5))
 
     for sid, label, color in [
-        (finished_sessions[0], "Beendete Session (Will_Finish=1)", "#55A868"),
-        (quit_sessions[0],     "Abgebrochene Session (Will_Finish=0)", "#C44E52"),
+        (finished_sessions[0], "Completed Session (Will_Finish=1)", "#55A868"),
+        (quit_sessions[0],     "Abandoned Session (Will_Finish=0)", "#C44E52"),
     ]:
         session = df[df['session_id'] == sid][FEATURES].fillna(0)
         if len(session) < 10:
             continue
         probs = xgb_m.predict_proba(session)[:, 1]
-        # Zeitachse normalisiert auf [0, 100%]
+        # Normalize time axis to [0, 100%]
         x = np.linspace(0, 100, len(probs))
         ax.plot(x, probs, label=label, color=color, lw=2, alpha=0.85)
         ax.fill_between(x, probs, alpha=0.1, color=color)
 
-    ax.axhline(0.5, color="gray", lw=1, linestyle="--", alpha=0.6, label="50%-Schwelle")
-    ax.set_xlabel("Spielfortschritt (%)")
-    ax.set_ylabel("Geschätzte Gewinnwahrscheinlichkeit")
-    ax.set_title("Win-Wahrscheinlichkeit im Spielverlauf (XGBoost)")
+    ax.axhline(0.5, color="gray", lw=1, linestyle="--", alpha=0.6, label="50% Threshold")
+    ax.set_xlabel("Game Progress (%)")
+    ax.set_ylabel("Estimated Win Probability")
+    ax.set_title("Win Probability Over Game Progress (XGBoost)")
     ax.set_ylim(0, 1)
     ax.legend()
     ax.grid(alpha=0.3)
@@ -265,14 +265,14 @@ def plot_win_probability_over_time(models, data):
     print(f"  ✓ {path}")
 
 
-# ── Plot 6: Klassenverteilung im Datensatz ───────────────────────────────────
+# ── Plot 6: Class Distribution in Dataset ───────────────────────────────────
 def plot_class_distribution():
     df_raw = parse_sql_to_df(SQL_PATH)
     df     = preprocess_data(df_raw)
 
     per_session = df.groupby('session_id')['Will_Finish'].first()
     counts = per_session.value_counts().sort_index()
-    labels = ["Nicht beendet\n(Quit/Idle)", "Beendet\n(Finished)"]
+    labels = ["Not Finished\n(Quit/Idle)", "Finished"]
     colors = ["#C44E52", "#55A868"]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
@@ -280,19 +280,19 @@ def plot_class_distribution():
     # Pie
     ax1.pie(counts, labels=labels, colors=colors, autopct="%1.0f%%",
             startangle=90, wedgeprops={"edgecolor": "white", "linewidth": 2})
-    ax1.set_title("Klassenverteilung (Sessions)")
+    ax1.set_title("Class Distribution (Sessions)")
 
-    # Zeilenanzahl
+    # Row counts
     row_counts = df.groupby('Will_Finish').size()
     ax2.bar(labels, row_counts.values, color=colors, alpha=0.85, edgecolor="white")
     for i, v in enumerate(row_counts.values):
         ax2.text(i, v + 200, f"{v:,}", ha="center", fontsize=11)
-    ax2.set_ylabel("Anzahl Trainingszeilen")
-    ax2.set_title("Klassenverteilung (Trainingszeilen)")
+    ax2.set_ylabel("Number of Training Rows")
+    ax2.set_title("Class Distribution (Training Rows)")
     ax2.yaxis.grid(True, alpha=0.3)
     ax2.set_axisbelow(True)
 
-    plt.suptitle("Klassenbalance im bereinigten Datensatz", fontweight="bold", y=1.02)
+    plt.suptitle("Class Balance in Cleaned Dataset", fontweight="bold", y=1.02)
     plt.tight_layout()
 
     path = f"{OUT_DIR}/class_distribution.png"
@@ -301,9 +301,9 @@ def plot_class_distribution():
     print(f"  ✓ {path}")
 
 
-# ── Plot 7: Feature-Verteilungen (Grid mit Gaussian-Fit) ───────────────────────────
+# ── Plot 7: Feature Distributions (Grid with Gaussian Fit) ─────────────────
 def plot_feature_distributions():
-    """2×5 Grid aller Features mit Histogramm + Gaussian-Fit + p-Wert."""
+    """2×5 grid of all features with histogram + Gaussian fit + p-value."""
     from scipy import stats as sp_stats
     from data_parser import aggregate_per_session
 
@@ -324,25 +324,25 @@ def plot_feature_distributions():
         ax  = axes[idx]
         col = df_agg[feat].dropna() if feat in df_agg.columns else df[feat].dropna()
 
-        # Histogramm
+        # Histogram
         ax.hist(col, bins=15, density=True, color="#4C72B0", alpha=0.6,
-                edgecolor="white", linewidth=0.6, label="Daten")
+                edgecolor="white", linewidth=0.6, label="Data")
 
-        # Gaussian-Fit
+        # Gaussian fit
         mu, sigma = sp_stats.norm.fit(col)
         x = np.linspace(col.min(), col.max(), 200)
         ax.plot(x, sp_stats.norm.pdf(x, mu, sigma),
                 color="#C44E52", lw=2, label=f"μ={mu:.2f}, σ={sigma:.2f}")
 
-        # Schraffur: ±1σ
+        # ±1σ shading
         ax.fill_between(x, sp_stats.norm.pdf(x, mu, sigma),
                         where=(x >= mu - sigma) & (x <= mu + sigma),
                         alpha=0.15, color="#C44E52", label="±1σ")
 
-        # p-Wert (D'Agostino)
+        # p-value (D'Agostino)
         if len(col) >= 20:
             _, pval = sp_stats.normaltest(col)
-            verdict = "Normalverteilt" if pval > 0.05 else "Nicht normalverteilt"
+            verdict = "Normal" if pval > 0.05 else "Not Normal"
             color_p = "#2ca02c" if pval > 0.05 else "#d62728"
             ax.text(0.97, 0.95, f"p = {pval:.2e}\n{verdict}",
                     transform=ax.transAxes, ha="right", va="top",
@@ -350,13 +350,13 @@ def plot_feature_distributions():
                     bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=color_p, alpha=0.8))
 
         ax.set_title(FEATURE_LABELS.get(feat, feat), fontsize=11)
-        ax.set_ylabel("Dichte")
+        ax.set_ylabel("Density")
         ax.legend(fontsize=7.5, loc="upper left")
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.grid(alpha=0.25)
 
-    plt.suptitle("Feature-Verteilungen mit Gaussian-Fit (pro Session aggregiert)",
+    plt.suptitle("Feature Distributions with Gaussian Fit (per-session aggregated)",
                  fontsize=14, fontweight="bold", y=1.01)
     plt.tight_layout()
 
@@ -366,9 +366,9 @@ def plot_feature_distributions():
     print(f"  ✓ {path}")
 
 
-# ── Plot 8: PCA Skill-Score Verteilung (aufgewertet) ─────────────────────────
+# ── Plot 8: PCA Skill Score Distribution ────────────────────────────────────
 def plot_pca_skill_score():
-    """Normierter PCA-Skill-Score mit Gaussian-Fit, Konfidenzbändern und Klassen-Markierungen."""
+    """Standardised PCA skill score with Gaussian fit, confidence bands, and class rug plot."""
     from scipy import stats as sp_stats
     from sklearn.decomposition import PCA
     from sklearn.preprocessing import StandardScaler
@@ -382,7 +382,7 @@ def plot_pca_skill_score():
     data_clean = df_agg[feat_cols + ['Will_Finish']].dropna()
 
     if len(data_clean) < 5:
-        print("  ⚠ Zu wenig Datenpunkte für PCA-Plot.")
+        print("  ⚠ Not enough data points for PCA plot.")
         return
 
     X      = data_clean[feat_cols].values
@@ -399,17 +399,17 @@ def plot_pca_skill_score():
 
     fig, ax = plt.subplots(figsize=(9, 5))
 
-    # Hintergrund-Histogramm
+    # Background histogram
     ax.hist(scores, bins=12, density=True,
             color="#4C72B0", alpha=0.45, edgecolor="white", zorder=2)
 
-    # Gaussian-Fit-Kurve
+    # Gaussian fit curve
     x_range = np.linspace(scores.min() - 0.5, scores.max() + 0.5, 300)
     pdf     = sp_stats.norm.pdf(x_range, mu, sigma)
     ax.plot(x_range, pdf, color="#1a1a2e", lw=2.5,
             linestyle="--", label=f"Gaussian Fit (μ={mu:.2f}, σ={sigma:.2f})", zorder=3)
 
-    # ±1σ und ±2σ Konfidenzbänder
+    # ±1σ and ±2σ confidence bands
     for band, alpha, label in [
         (2, 0.10, "±2σ (95.4%)"),
         (1, 0.20, "±1σ (68.3%)"),
@@ -418,25 +418,25 @@ def plot_pca_skill_score():
                         where=(x_range >= mu - band*sigma) & (x_range <= mu + band*sigma),
                         alpha=alpha, color="#4C72B0", label=label, zorder=1)
 
-    # Einzelne Sessions als Rugplot + farbige Punkte
+    # Session rug plot by class
     colors_cls = {0: "#C44E52", 1: "#55A868"}
-    for cls, clabel in [(0, "Nicht beendet"), (1, "Beendet")]:
+    for cls, clabel in [(0, "Not Finished"), (1, "Finished")]:
         mask = labels == cls
         ax.scatter(scores[mask], np.zeros(mask.sum()) - 0.01,
                    color=colors_cls[cls], s=80, marker="|",
                    linewidths=2, zorder=4, label=clabel, clip_on=False)
 
-    # p-Wert Annotation
-    verdict = "Normalverteilt ✓" if pval > 0.05 else "Nicht normalverteilt ✗"
+    # p-value annotation
+    verdict = "Normal ✓" if pval > 0.05 else "Not Normal ✗"
     col_p   = "#2ca02c" if pval > 0.05 else "#d62728"
     ax.text(0.02, 0.97, f"p = {pval:.3e}  →  {verdict}",
             transform=ax.transAxes, va="top", fontsize=10,
             color=col_p, fontweight="bold",
             bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=col_p, alpha=0.85))
 
-    ax.set_xlabel(f"Skill Score (PC1, erklärt {var_exp:.1f}% der Varianz)")
-    ax.set_ylabel("Dichte")
-    ax.set_title("Verteilung des PCA-basierten Skill Scores")
+    ax.set_xlabel(f"Skill Score (PC1, explains {var_exp:.1f}% of variance)")
+    ax.set_ylabel("Density")
+    ax.set_title("Distribution of PCA-Based Skill Score")
     ax.legend(loc="upper right", fontsize=9)
     ax.grid(alpha=0.25)
     ax.spines['top'].set_visible(False)
@@ -452,12 +452,12 @@ def plot_pca_skill_score():
 # ── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     if not os.path.exists(SQL_PATH):
-        print(f"Fehler: {SQL_PATH} nicht gefunden.")
+        print(f"Error: {SQL_PATH} not found.")
         exit(1)
 
     models, data = load_and_train()
 
-    print(f"\nGeneriere Plots → {OUT_DIR}/")
+    print(f"\nGenerating plots → {OUT_DIR}/")
     plot_model_comparison(models, data)
     plot_roc_curves(models, data)
     plot_feature_importance(models, data)
@@ -467,4 +467,4 @@ if __name__ == "__main__":
     plot_feature_distributions()
     plot_pca_skill_score()
 
-    print(f"\n✓ Alle Plots gespeichert in ml_pipeline/{OUT_DIR}/")
+    print(f"\n✓ All plots saved to ml_pipeline/{OUT_DIR}/")
