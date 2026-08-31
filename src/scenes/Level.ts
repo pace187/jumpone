@@ -339,18 +339,19 @@ export default class Level extends Phaser.Scene {
 	// Debug
 	private readonly SHOW_TELEMETRY_DEBUG = false;
 	private debugText!: Phaser.GameObjects.Text;
-	
+
 	// Live ML
 	private text_winProb!: Phaser.GameObjects.Text;
 
-	create() {
-		this.editorCreate();
+	/**
+	 * Clears all per-run AFK and ML tracking state.
+	 * Field initializers only run once per scene instance, so a restart needs this explicitly.
+	 */
+	private resetTracking() {
 		this.lastInputTime = -1;
 		this.isAfk = false;
 		this.sessionStartTime = Date.now();
 		this.landTime = 0;
-
-		// Reset ML tracking state (safe for scene restarts)
 		this.succeededJumps = 0;
 		this.failedJumps = 0;
 		this.totalFalls = 0;
@@ -376,6 +377,11 @@ export default class Level extends Phaser.Scene {
 		this.checkpointsReached = 0;
 		this.collectedCheckpoints.clear();
 		this.lastTelemetry = 0;
+	}
+
+	create() {
+		this.editorCreate();
+		this.resetTracking();
 
 		this.collisionLayer.setCollision([11]);
 		this.iceLayer.setCollision([1]);
@@ -386,7 +392,7 @@ export default class Level extends Phaser.Scene {
 			this.collectedCheckpoints.add(key);
 			tile.setAlpha(0);
 			this.checkpointsReached++;
-			this.text_checkpoints.setText(`Checkpoints: ${this.checkpointsReached}/5`);
+			this.text_checkpoints.setText(`Checkpoints: ${this.checkpointsReached}/6`);
 		}, this);
 
 		this.finishLayer.setTileIndexCallback(130, (_sprite: Phaser.GameObjects.GameObject, tile: Phaser.Tilemaps.Tile) => {
@@ -676,11 +682,11 @@ export default class Level extends Phaser.Scene {
 					this.player.x,
 					this.player.y
 				];
-				
+
 				const prob = predictWinProbability(ml_features);
 				const pct = (prob * 100).toFixed(1);
 				this.text_winProb.setText(`Win Probability: ${pct}%`);
-				
+
 				if (prob < 0.3) this.text_winProb.setColor("#ff0000");
 				else if (prob > 0.7) this.text_winProb.setColor("#00ff00");
 				else this.text_winProb.setColor("#ffff00");
@@ -732,6 +738,36 @@ export default class Level extends Phaser.Scene {
 	private SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 	private get player() { return this.arcadesprite_1; }
 
+	/** POSTs one telemetry row for the given state. Callers attach their own error handling. */
+	private postTelemetry(state: string): Promise<Response> {
+		const sessionData = this.aggregateSessionData();
+		const body = this.player.body as Phaser.Physics.Arcade.Body;
+
+		return fetch(`${this.SUPABASE_URL}/rest/v1/telemetry`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"apikey": this.SUPABASE_ANON_KEY,
+				"Authorization": `Bearer ${this.SUPABASE_ANON_KEY}`,
+				"Prefer": "return=minimal"
+			},
+			body: JSON.stringify({
+				session_id: this.sessionId,
+				pos_x: this.player.x,
+				pos_y: this.player.y,
+				vel_x: body.velocity.x,
+				vel_y: body.velocity.y,
+				velocity_magnitude: Math.round(Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2)),
+				input_left: this.leftKey.isDown ? 1 : 0,
+				input_right: this.rightKey.isDown ? 1 : 0,
+				input_jump: this.spaceKey.isDown ? 1 : 0,
+				state,
+				timestamp: Date.now(),
+				...sessionData
+			})
+		});
+	}
+
 	private updateTelemetry(time: number, force = false, stateOverride?: string) {
 		if (!this.player || !this.player.body) return;
 		if (this.telemetryInFlight && !force) return;
@@ -751,31 +787,7 @@ export default class Level extends Phaser.Scene {
 			this.lastTelemetry = time;
 			this.telemetryInFlight = true;
 
-			const currentMlData = this.aggregateSessionData();
-
-			fetch(`${this.SUPABASE_URL}/rest/v1/telemetry`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"apikey": this.SUPABASE_ANON_KEY,
-					"Authorization": `Bearer ${this.SUPABASE_ANON_KEY}`,
-					"Prefer": "return=minimal"
-				},
-				body: JSON.stringify({
-					session_id: this.sessionId,
-					pos_x: this.player.x,
-					pos_y: this.player.y,
-					vel_x: this.player.body.velocity.x,
-					vel_y: this.player.body.velocity.y,
-					velocity_magnitude: Math.round(Math.sqrt(this.player.body.velocity.x ** 2 + this.player.body.velocity.y ** 2)),
-					input_left: this.leftKey.isDown ? 1 : 0,
-					input_right: this.rightKey.isDown ? 1 : 0,
-					input_jump: this.spaceKey.isDown ? 1 : 0,
-					state: stateOverride ?? state,
-					timestamp: Date.now(),
-					...currentMlData
-				})
-			})
+			this.postTelemetry(stateOverride ?? state)
 				.catch(err => console.error("Telemetry send failed:", err))
 				.finally(() => { this.telemetryInFlight = false; });
 		}
@@ -803,62 +815,16 @@ export default class Level extends Phaser.Scene {
 	}
 
 	public sendQuitTelemetry(): Promise<void> {
-		const sessionData = this.aggregateSessionData();
-		const body = this.player.body as Phaser.Physics.Arcade.Body;
-
-		return fetch(`${this.SUPABASE_URL}/rest/v1/telemetry`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"apikey": this.SUPABASE_ANON_KEY,
-				"Authorization": `Bearer ${this.SUPABASE_ANON_KEY}`,
-				"Prefer": "return=minimal"
-			},
-			body: JSON.stringify({
-				session_id: this.sessionId,
-				pos_x: this.player.x,
-				pos_y: this.player.y,
-				vel_x: body.velocity.x,
-				vel_y: body.velocity.y,
-				velocity_magnitude: Math.round(Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2)),
-				input_left: this.leftKey.isDown ? 1 : 0,
-				input_right: this.rightKey.isDown ? 1 : 0,
-				input_jump: this.spaceKey.isDown ? 1 : 0,
-				state: "Quit",
-				timestamp: Date.now(),
-				...sessionData
-			})
-		}).then(() => { }).catch(err => console.error("Quit telemetry failed:", err));
+		return this.postTelemetry("Quit")
+			.then(() => { })
+			.catch(err => console.error("Quit telemetry failed:", err));
 	}
 
 	private sendLevelCompleteTelemetry() {
 		if (!this.player || !this.player.body) return;
-		const sessionData = this.aggregateSessionData();
-		const body = this.player.body as Phaser.Physics.Arcade.Body;
 
-		fetch(`${this.SUPABASE_URL}/rest/v1/telemetry`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"apikey": this.SUPABASE_ANON_KEY,
-				"Authorization": `Bearer ${this.SUPABASE_ANON_KEY}`,
-				"Prefer": "return=minimal"
-			},
-			body: JSON.stringify({
-				session_id: this.sessionId,
-				pos_x: this.player.x,
-				pos_y: this.player.y,
-				vel_x: body.velocity.x,
-				vel_y: body.velocity.y,
-				velocity_magnitude: Math.round(Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2)),
-				input_left: this.leftKey.isDown ? 1 : 0,
-				input_right: this.rightKey.isDown ? 1 : 0,
-				input_jump: this.spaceKey.isDown ? 1 : 0,
-				state: "Finished",
-				timestamp: Date.now(),
-				...sessionData
-			})
-		}).catch(err => console.error("Final Telemetry send failed:", err));
+		this.postTelemetry("Finished")
+			.catch(err => console.error("Final Telemetry send failed:", err));
 	}
 	/* END-USER-CODE */
 }

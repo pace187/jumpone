@@ -4,6 +4,7 @@
 /* START OF COMPILED CODE */
 
 /* START-USER-IMPORTS */
+import { findImageByTexture } from "./sceneUtils";
 /* END-USER-IMPORTS */
 
 export default class Finish extends Phaser.Scene {
@@ -86,9 +87,7 @@ export default class Finish extends Phaser.Scene {
 
 		this.editorCreate();
 
-		const home = this.children.list.find(
-			(child) => child instanceof Phaser.GameObjects.Image && child.texture.key === "sign_exit"
-		) as Phaser.GameObjects.Image;
+		const home = findImageByTexture(this, "sign_exit");
 
 		home.setInteractive({ useHandCursor: true });
 		home.on("pointerdown", () => {

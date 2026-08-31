@@ -1,13 +1,11 @@
 import os
-import xgboost as xgb
 import m2cgen as m2c
 import argparse
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, f1_score
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import StandardScaler
 from data_parser import parse_sql_to_df, preprocess_data
+from models import make_logistic_regression, make_decision_tree, make_xgboost
 
 FEATURES = [
     'jumpSuccessRate', 'jumpsFailed', 'totalFalls', 'maxFallDistance', 
@@ -50,7 +48,7 @@ def main():
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    lr = LogisticRegression(max_iter=1000, random_state=42)
+    lr = make_logistic_regression()
     lr.fit(X_train_scaled, y_train)
     lr_acc = lr.score(X_test_scaled, y_test)
     lr_f1 = f1_score(y_test, lr.predict(X_test_scaled), zero_division=0)
@@ -58,7 +56,7 @@ def main():
     print(f"\n[Logistic Regression]  Accuracy: {lr_acc:.3f}  F1: {lr_f1:.3f}  JS size: {len(lr_js):,} chars")
 
     # --- Baseline: Decision Tree ---
-    dt = DecisionTreeClassifier(max_depth=4, random_state=42)
+    dt = make_decision_tree()
     dt.fit(X_train, y_train)
     dt_acc = dt.score(X_test, y_test)
     dt_f1 = f1_score(y_test, dt.predict(X_test), zero_division=0)
@@ -67,14 +65,7 @@ def main():
 
     # --- Main model: XGBoost ---
     print(f"\nTraining XGBoost Classifier on {len(X_train)} samples...")
-    # Keep tree shallow so JS code doesn't become gigantic
-    model = xgb.XGBClassifier(
-        n_estimators=30,
-        max_depth=3,
-        learning_rate=0.1,
-        random_state=42,
-        base_score=0.5  # explizit setzen für m2cgen-Kompatibilität
-    )
+    model = make_xgboost()
     model.fit(X_train, y_train)
 
     xgb_acc = model.score(X_test, y_test)
@@ -83,12 +74,10 @@ def main():
     print(f"[XGBoost]              Accuracy: {xgb_acc:.3f}  F1: {xgb_f1:.3f}  JS size: {len(xgb_js):,} chars")
     print(f"\n=> XGBoost vs. Logistic Regression: Δ Accuracy {xgb_acc - lr_acc:+.3f}, Δ F1 {xgb_f1 - lr_f1:+.3f}")
     print(f"=> XGBoost vs. Decision Tree:        Δ Accuracy {xgb_acc - dt_acc:+.3f}, Δ F1 {xgb_f1 - dt_f1:+.3f}")
-    score = xgb_acc
-    
+
     # Export XGBoost to JavaScript using m2cgen
     print("\nExporting XGBoost model to JavaScript...")
-    code = xgb_js
-    
+
     feature_list_str = ", ".join(f"[{i}] {name}" for i, name in enumerate(FEATURES))
     
     wrapper = f"""
@@ -97,7 +86,7 @@ def main():
 // Features expected in array order:
 // {feature_list_str}
 
-{code}
+{xgb_js}
 
 // m2cgen generates 'function score(input) {{ ... }}'
 // It outputs raw margins (log-odds). We convert it to Probability [0, 1]

@@ -5,6 +5,7 @@
 
 /* START-USER-IMPORTS */
 import Level from "./Level";
+import { findImageByTexture, findImagesByTexture } from "./sceneUtils";
 /* END-USER-IMPORTS */
 
 export default class Pause extends Phaser.Scene {
@@ -105,9 +106,7 @@ export default class Pause extends Phaser.Scene {
 			this.scene.resume('Level');
 		});
 
-		const home = this.children.list.find(
-			(child) => child instanceof Phaser.GameObjects.Image && child.texture.key === "sign_exit"
-		) as Phaser.GameObjects.Image;
+		const home = findImageByTexture(this, "sign_exit");
 
 		home.setInteractive({ useHandCursor: true });
 		home.on("pointerdown", () => {
@@ -122,12 +121,9 @@ export default class Pause extends Phaser.Scene {
 			this.scene.resume('Level');
 		};
 
-		for (const child of this.children.list) {
-			if (child instanceof Phaser.GameObjects.Image &&
-				(child.texture.key === "gear" || child.texture.key === "continue")) {
-				child.setInteractive({ useHandCursor: true });
-				child.on("pointerdown", resumeHandler);
-			}
+		for (const child of findImagesByTexture(this, "gear", "continue")) {
+			child.setInteractive({ useHandCursor: true });
+			child.on("pointerdown", resumeHandler);
 		}
 	}
 

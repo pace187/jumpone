@@ -31,3 +31,4 @@ dist-ssr
 __pycache__
 *.png
 *.sql
+*.md

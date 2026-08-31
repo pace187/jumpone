@@ -16,10 +16,6 @@ def parse_sql_to_df(filepath):
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # Unterstützt beide Formate:
-    # 1. Original (Supabase-Export): ... VALUES (\n(62171, ...)
-    # 2. Nach session_overview.py-Filter: INSERT INTO ...\n(col_list),\n(62171, ...)
-    # Strategie: erstes Datentupel finden – beginnt immer mit '(<integer>,'
     m = re.search(r'\(\s*\d+\s*,', content)
     if m is None:
         raise ValueError("Konnte keinen Datenbeginn in der SQL-Datei finden.")
@@ -44,7 +40,7 @@ def parse_sql_to_df(filepath):
         if line:
             lines.append(line)
 
-    # SQL-Anführungszeichen entfernen ('Idle' → Idle)
+    # SQL-Anführungszeichen entfernen ('Idle' -> Idle)
     clean = "\n".join(lines).replace("'", "")
 
     print(f"Parsing CSV data... ({len(lines)} Zeilen)")
@@ -57,7 +53,9 @@ CUMULATIVE_FEATURES = [
     'jumpSuccessRate', 'jumpsFailed', 'totalFalls', 'avgFallDistance',
     'maxFallDistance', 'distancePerJump', 'avgTimeBetweenJumps', 'totalJumpsAttempted',
 ]
-SNAPSHOT_FEATURES = ['velocity_magnitude', 'pos_x', 'pos_y']
+SNAPSHOT_FEATURES = [
+    'velocity_magnitude', 'pos_x', 'pos_y'
+]
 
 def preprocess_data(df, max_rows_per_session=None):
     print("Sorting and propagating labels...")

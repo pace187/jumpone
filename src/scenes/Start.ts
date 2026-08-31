@@ -4,6 +4,7 @@
 /* START OF COMPILED CODE */
 
 /* START-USER-IMPORTS */
+import { findImageByTexture } from "./sceneUtils";
 /* END-USER-IMPORTS */
 
 export default class Start extends Phaser.Scene {
@@ -91,9 +92,7 @@ export default class Start extends Phaser.Scene {
 
 		this.editorCreate();
 
-		const buttonStart = this.children.list.find(
-			(child) => child instanceof Phaser.GameObjects.Image && child.texture.key === "buttonStart"
-		) as Phaser.GameObjects.Image;
+		const buttonStart = findImageByTexture(this, "buttonStart");
 
 		buttonStart.setInteractive({ useHandCursor: true });
 		buttonStart.on("pointerdown", () => {

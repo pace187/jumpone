@@ -10,17 +10,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import seaborn as sns
+from scipy import stats as sp_stats
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     confusion_matrix, roc_curve, auc,
     f1_score, ConfusionMatrixDisplay
 )
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-import xgboost as xgb
 
-from data_parser import parse_sql_to_df, preprocess_data
+from data_parser import parse_sql_to_df, preprocess_data, aggregate_per_session
+from models import make_logistic_regression, make_decision_tree, make_xgboost
 
 # ── Stil ────────────────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -60,11 +60,10 @@ FEATURE_LABELS = {
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
-# ── Load data & train models ────────────────────────────────────────────────
-def load_and_train():
-    print("Loading data and training models...")
-    df_raw = parse_sql_to_df(SQL_PATH)
-    df     = preprocess_data(df_raw)[FEATURES + [TARGET]].fillna(0)
+# ── Train models ────────────────────────────────────────────────────────────
+def train_models(df):
+    print("Training models...")
+    df = df[FEATURES + [TARGET]].fillna(0)
 
     X = df[FEATURES]
     y = df[TARGET]
@@ -76,16 +75,13 @@ def load_and_train():
     X_train_sc    = scaler.fit_transform(X_train)
     X_test_sc     = scaler.transform(X_test)
 
-    lr = LogisticRegression(max_iter=1000, random_state=42)
+    lr = make_logistic_regression()
     lr.fit(X_train_sc, y_train)
 
-    dt = DecisionTreeClassifier(max_depth=4, random_state=42)
+    dt = make_decision_tree()
     dt.fit(X_train, y_train)
 
-    model = xgb.XGBClassifier(
-        n_estimators=30, max_depth=3,
-        learning_rate=0.1, random_state=42, base_score=0.5
-    )
+    model = make_xgboost()
     model.fit(X_train, y_train)
 
     return (lr, dt, model), (X_train, X_test, X_train_sc, X_test_sc, y_train, y_test)
@@ -219,14 +215,10 @@ def plot_confusion_matrix(models, data):
 
 
 # ── Plot 5: Win Probability Over Time (example sessions) ───────────────────
-def plot_win_probability_over_time(models, data):
+def plot_win_probability_over_time(models, df):
     """Shows how estimated win probability evolves throughout a session."""
     _, _, xgb_m = models
-    X_train, X_test, *_ = data
-    y_train = data[4]
-
-    df_raw = parse_sql_to_df(SQL_PATH)
-    df     = preprocess_data(df_raw).fillna(0)
+    df = df.fillna(0)
 
     # Pick one finished session and one quit session
     finished_sessions = df[df['Will_Finish'] == 1]['session_id'].unique()
@@ -266,10 +258,7 @@ def plot_win_probability_over_time(models, data):
 
 
 # ── Plot 6: Class Distribution in Dataset ───────────────────────────────────
-def plot_class_distribution():
-    df_raw = parse_sql_to_df(SQL_PATH)
-    df     = preprocess_data(df_raw)
-
+def plot_class_distribution(df):
     per_session = df.groupby('session_id')['Will_Finish'].first()
     counts = per_session.value_counts().sort_index()
     labels = ["Not Finished\n(Quit/Idle)", "Finished"]
@@ -302,15 +291,8 @@ def plot_class_distribution():
 
 
 # ── Plot 7: Feature Distributions (Grid with Gaussian Fit) ─────────────────
-def plot_feature_distributions():
+def plot_feature_distributions(df, df_agg):
     """2×5 grid of all features with histogram + Gaussian fit + p-value."""
-    from scipy import stats as sp_stats
-    from data_parser import aggregate_per_session
-
-    df_raw = parse_sql_to_df(SQL_PATH)
-    df     = preprocess_data(df_raw)
-    df_agg = aggregate_per_session(df)
-
     PLOT_FEATURES = [
         'jumpSuccessRate', 'jumpsFailed', 'totalFalls', 'maxFallDistance',
         'distancePerJump', 'avgTimeBetweenJumps', 'totalJumpsAttempted',
@@ -367,17 +349,8 @@ def plot_feature_distributions():
 
 
 # ── Plot 8: PCA Skill Score Distribution ────────────────────────────────────
-def plot_pca_skill_score():
+def plot_pca_skill_score(df_agg):
     """Standardised PCA skill score with Gaussian fit, confidence bands, and class rug plot."""
-    from scipy import stats as sp_stats
-    from sklearn.decomposition import PCA
-    from sklearn.preprocessing import StandardScaler
-    from data_parser import aggregate_per_session
-
-    df_raw = parse_sql_to_df(SQL_PATH)
-    df     = preprocess_data(df_raw)
-    df_agg = aggregate_per_session(df)
-
     feat_cols = [f for f in FEATURES if f in df_agg.columns]
     data_clean = df_agg[feat_cols + ['Will_Finish']].dropna()
 
@@ -455,16 +428,21 @@ if __name__ == "__main__":
         print(f"Error: {SQL_PATH} not found.")
         exit(1)
 
-    models, data = load_and_train()
+    # Parse the SQL dump once — every plot below works off these two frames
+    print("Loading data...")
+    df     = preprocess_data(parse_sql_to_df(SQL_PATH))
+    df_agg = aggregate_per_session(df)
+
+    models, data = train_models(df)
 
     print(f"\nGenerating plots → {OUT_DIR}/")
     plot_model_comparison(models, data)
     plot_roc_curves(models, data)
     plot_feature_importance(models, data)
     plot_confusion_matrix(models, data)
-    plot_win_probability_over_time(models, data)
-    plot_class_distribution()
-    plot_feature_distributions()
-    plot_pca_skill_score()
+    plot_win_probability_over_time(models, df)
+    plot_class_distribution(df)
+    plot_feature_distributions(df, df_agg)
+    plot_pca_skill_score(df_agg)
 
     print(f"\n✓ All plots saved to ml_pipeline/{OUT_DIR}/")
