@@ -11,6 +11,20 @@ COLUMNS = [
     "totalJumpsAttempted", "sessionDuration_sec", "totalFalls"
 ]
 
+# Alle Skripte lesen denselben Export. Hier steht der Standardpfad einmal;
+# jedes Skript nimmt ihn per --sql entgegen, damit man mehrere Exporte
+# nebeneinander auswerten kann, ohne Dateien umzubenennen.
+DEFAULT_SQL = "../telemetry_rows.sql"
+
+
+def add_sql_argument(parser, default=DEFAULT_SQL):
+    """Haengt den einheitlichen --sql-Schalter an einen ArgumentParser."""
+    parser.add_argument(
+        "--sql", default=default, metavar="PFAD",
+        help=f"Pfad zum SQL-Export (Standard: {default})",
+    )
+    return parser
+
 def parse_sql_to_df(filepath):
     print(f"Reading {filepath}...")
     with open(filepath, 'r') as f:
@@ -44,8 +58,27 @@ def parse_sql_to_df(filepath):
     clean = "\n".join(lines).replace("'", "")
 
     print(f"Parsing CSV data... ({len(lines)} Zeilen)")
-    df = pd.read_csv(io.StringIO(clean), names=COLUMNS, header=None)
+    # Spaltennamen erst nach dem Einlesen zuweisen: Exporte von vor der
+    # Einfuehrung von player_id haben eine Spalte weniger. Beide muessen lesbar
+    # bleiben, sonst sind die Altdaten mit der neuen Pipeline nicht mehr nutzbar.
+    df = pd.read_csv(io.StringIO(clean), header=None)
+    if df.shape[1] == len(COLUMNS):
+        df.columns = COLUMNS
+        df['player_id'] = pd.NA          # Altdaten: Person unbekannt
+    elif df.shape[1] == len(COLUMNS) + 1:
+        df.columns = COLUMNS + ['player_id']
+    else:
+        raise ValueError(
+            f"Unerwartete Spaltenzahl im Export: {df.shape[1]}, "
+            f"erwartet {len(COLUMNS)} oder {len(COLUMNS)+1}. "
+            f"Wurde das Tabellenschema geaendert? Dann COLUMNS anpassen."
+        )
+    # Werte hinter ", " tragen ein fuehrendes Leerzeichen. Ohne Strip vergleichen
+    # sich session_ids aus zwei Exporten nicht zuverlaessig.
     df['state'] = df['state'].astype(str).str.strip()
+    df['session_id'] = df['session_id'].astype(str).str.strip()
+    if 'player_id' in df.columns:
+        df['player_id'] = df['player_id'].astype(str).str.strip().replace({'': pd.NA, '<NA>': pd.NA})
     return df
 
 
@@ -71,11 +104,14 @@ def preprocess_data(df, max_rows_per_session=None):
     # --- Subsampling for Bias Prevention ---
     if max_rows_per_session is not None:
         print(f"Subsampling: Limiting to a maximum of {max_rows_per_session} random rows per session to prevent bias...")
-        df = df.groupby('session_id', group_keys=False).apply(
-            lambda x: x.sample(n=min(len(x), max_rows_per_session), random_state=42)
-        )
+        # Bewusst kein groupby(...).apply(): neuere pandas-Versionen entfernen dabei
+        # die Gruppenspalte aus dem Ergebnis, wodurch 'session_id' still verschwindet.
+        parts = [
+            g.sample(n=min(len(g), max_rows_per_session), random_state=42)
+            for _, g in df.groupby('session_id', sort=False)
+        ]
         # Restore original chronological sorting by numeric index
-        df = df.sort_index()
+        df = pd.concat(parts).sort_index()
 
     return df
 

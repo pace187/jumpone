@@ -325,6 +325,14 @@ export default class Level extends Phaser.Scene {
 	private hitCeilingDuringJump = false;
 	private jumpStartTime = 0;
 	private landTime = 0;
+
+	// Phasers Uhr laeuft waehrend einer Pause weiter, die Scene wird aber nicht
+	// aktualisiert. Ohne diese Buchhaltung landet die komplette Pausendauer in
+	// der "Planungszeit" zwischen zwei Spruengen.
+	private totalPausedTime = 0;
+	private pauseStartedAt = 0;
+	/** Stand von totalPausedTime bei der letzten Landung. */
+	private landPausedTotal = 0;
 	private sessionStartTime = 0;
 	private succeededJumps = 0;
 	private failedJumps = 0;
@@ -341,6 +349,16 @@ export default class Level extends Phaser.Scene {
 	private debugText!: Phaser.GameObjects.Text;
 
 	// Live ML
+	/**
+	 * Blendet die Echtzeit-Prognose im HUD ein.
+	 *
+	 * Waehrend einer Datenerhebung MUSS das false sein: eine sichtbare
+	 * Gewinnwahrscheinlichkeit beeinflusst genau das Verhalten, das gemessen
+	 * werden soll (wer "12%" liest, gibt eher auf). Die Prognose wird dann gar
+	 * nicht erst berechnet. Auf die Telemetrie hat der Schalter keinen Einfluss —
+	 * der Vorhersagewert wird ohnehin nicht gespeichert.
+	 */
+	private readonly SHOW_WIN_PREDICTION = false;
 	private text_winProb!: Phaser.GameObjects.Text;
 
 	/**
@@ -374,6 +392,9 @@ export default class Level extends Phaser.Scene {
 		this.hitWallDuringJump = false;
 		this.hitCeilingDuringJump = false;
 		this.jumpStartTime = 0;
+		this.totalPausedTime = 0;
+		this.pauseStartedAt = 0;
+		this.landPausedTotal = 0;
 		this.checkpointsReached = 0;
 		this.collectedCheckpoints.clear();
 		this.lastTelemetry = 0;
@@ -418,13 +439,16 @@ export default class Level extends Phaser.Scene {
 		this.text_checkpoints.setOrigin(0, 0.5);
 
 		// ML Predictor UI Display
-		this.text_winProb = this.add.text(0, 0, 'Win Probability: 50.0%', { "fontSize": "32px", "color": "#00ff00", "stroke": "#000000ff", "strokeThickness": 3 });
-		this.text_winProb.setScrollFactor(0);
-		this.text_winProb.setPosition(20, 80);
-		this.text_winProb.setOrigin(0, 0.5);
+		if (this.SHOW_WIN_PREDICTION) {
+			this.text_winProb = this.add.text(0, 0, 'Win Probability: 50.0%', { "fontSize": "32px", "color": "#00ff00", "stroke": "#000000ff", "strokeThickness": 3 });
+			this.text_winProb.setScrollFactor(0);
+			this.text_winProb.setPosition(20, 80);
+			this.text_winProb.setOrigin(0, 0.5);
+		}
 
 		this.physics.world.setBounds(0, 0, 1280, 7000);
 		this.physics.world.TILE_BIAS = 40;
+		this.playerId = this.getOrCreatePlayerId();
 		this.sessionId = this.createSession();
 		this.arcadesprite_1.setBounce(0.7, 0);
 
@@ -446,8 +470,19 @@ export default class Level extends Phaser.Scene {
 		this.text_pause.setInteractive({ useHandCursor: true });
 		this.text_pause.on("pointerdown", pauseHandler);
 
+		// Pausendauer mitzaehlen. Date.now() statt this.time.now, weil die
+		// Scene-Uhr waehrend der Pause steht — gemessen werden soll aber die
+		// real verstrichene Zeit.
+		this.events.on('pause', () => {
+			this.pauseStartedAt = Date.now();
+		});
+
 		// Reset AFK state when scene resumes (from manual or AFK pause)
 		this.events.on('resume', () => {
+			if (this.pauseStartedAt > 0) {
+				this.totalPausedTime += Date.now() - this.pauseStartedAt;
+				this.pauseStartedAt = 0;
+			}
 			this.isAfk = false;
 			this.lastInputTime = -1;
 		});
@@ -554,6 +589,7 @@ export default class Level extends Phaser.Scene {
 			}
 			this.isFalling = false;
 			this.landTime = _time;
+			this.landPausedTotal = this.totalPausedTime;
 		}
 		if (onGround && this.jumpInProgress && !isMovingUp) {
 			const heightReached = this.jumpStartY - this.jumpMaxHeightY;
@@ -573,6 +609,7 @@ export default class Level extends Phaser.Scene {
 			}
 			this.jumpInProgress = false;
 			this.landTime = _time;
+			this.landPausedTotal = this.totalPausedTime;
 		}
 
 		if (onGround && !isMovingUp) {
@@ -665,18 +702,21 @@ export default class Level extends Phaser.Scene {
 		this.updateTelemetry(_time);
 
 		// Run Live ML Prediction (approximately every 1s)
-		if (Math.floor(_time) % 1000 < delta) {
+		if (this.SHOW_WIN_PREDICTION && Math.floor(_time) % 1000 < delta) {
 			const data = this.aggregateSessionData();
 			const body = this.player?.body as Phaser.Physics.Arcade.Body | undefined;
 			if (body) {
 				const velocityMag = Math.round(Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2));
+				// Order must match FEATURES in ml_pipeline/models.py — the exported
+				// model takes a bare array, so a wrong order fails silently.
+				// avgTimeBetweenJumps is intentionally absent: it counts paused time
+				// and made the model treat any pause as "this player will quit".
 				const ml_features = [
 					data.jumpSuccessRate,
 					data.jumpsFailed,
 					data.totalFalls,
 					data.maxFallDistance,
 					data.distancePerJump,
-					data.avgTimeBetweenJumps,
 					data.totalJumpsAttempted,
 					velocityMag,
 					this.player.x,
@@ -707,7 +747,11 @@ export default class Level extends Phaser.Scene {
 			this.jumpStartTime = this.time.now;
 			this.totalJumpsAttempted++;
 			if (this.landTime > 0) {
-				this.totalPlanningTime += (this.jumpStartTime - this.landTime);
+				// Nur die tatsaechlich verspielte Zeit zaehlt als Planungszeit —
+				// alles, was der Spieler pausiert hat, wird abgezogen.
+				const pausedSinceLanding = this.totalPausedTime - this.landPausedTotal;
+				const planning = (this.jumpStartTime - this.landTime) - pausedSinceLanding;
+				this.totalPlanningTime += Math.max(0, planning);
 				this.planningTimeCount++;
 			}
 		}
@@ -719,6 +763,33 @@ export default class Level extends Phaser.Scene {
 		this.playerJumpPower = 0;
 		this.jumpDirection = 0;
 	}
+
+	/**
+	 * Stabile, anonyme Kennung des Browsers — bleibt ueber Sessions hinweg bestehen.
+	 * Erlaubt es, bei der Auswertung nach Person statt nach Session zu gruppieren:
+	 * spielt jemand mehrfach, duerfen seine anderen Laeufe nicht im Training
+	 * stehen, wenn geprueft werden soll, ob das Modell auf einem UNBEKANNTEN
+	 * Spieler funktioniert.
+	 *
+	 * Kein Personenbezug — eine Zufallszahl. Gilt pro Browser: dieselbe Person auf
+	 * Handy und Laptop zaehlt als zwei, geloeschte Browserdaten erzeugen eine neue.
+	 */
+	private getOrCreatePlayerId() {
+		const KEY = 'jumpone_player_id';
+		try {
+			let id = localStorage.getItem(KEY);
+			if (!id) {
+				id = (crypto.randomUUID?.() ?? Date.now() + '-' + Math.random().toString(36).slice(2));
+				localStorage.setItem(KEY, id);
+				console.log('New player id created:', id);
+			}
+			return id;
+		} catch {
+			// Privater Modus o.ae.: lieber ohne Kennung senden als abstuerzen.
+			return '';
+		}
+	}
+	playerId = '';
 
 	private createSession() {
 		//new session every game start for better per-try tracking
@@ -753,6 +824,7 @@ export default class Level extends Phaser.Scene {
 			},
 			body: JSON.stringify({
 				session_id: this.sessionId,
+				player_id: this.playerId,
 				pos_x: this.player.x,
 				pos_y: this.player.y,
 				vel_x: body.velocity.x,

@@ -2,7 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
-from data_parser import parse_sql_to_df, preprocess_data, aggregate_per_session
+from data_parser import parse_sql_to_df, preprocess_data, aggregate_per_session, add_sql_argument
 
 def check_gaussian(df, features):
     print("--- Gaussian Distribution Check ---")
@@ -46,7 +46,8 @@ def check_gaussian(df, features):
         plt.close()
 
 if __name__ == "__main__":
-    sql_path = "../telemetry_rows.sql"
+    import argparse
+    sql_path = add_sql_argument(argparse.ArgumentParser()).parse_args().sql
     if not os.path.exists(sql_path):
         print(f"File not found: {sql_path}")
         exit(1)
@@ -55,7 +56,11 @@ if __name__ == "__main__":
     df = preprocess_data(df_raw)
     df = aggregate_per_session(df)
     
-    # Features to analyze
+    # Bewusst NICHT models.FEATURES: das hier ist eine deskriptive Analyse der
+    # gemessenen Groessen, nicht des Merkmalsraums des Modells. Deshalb stehen
+    # hier auch avgFallDistance und avgTimeBetweenJumps, die beide nicht
+    # trainiert werden. pos_x/pos_y fehlen, weil Positionen keine Kennzahl der
+    # Spielweise sind.
     numerical_features = [
         "velocity_magnitude", "jumpSuccessRate", "jumpsFailed", "totalFalls",
         "avgFallDistance", "maxFallDistance", "distancePerJump", 

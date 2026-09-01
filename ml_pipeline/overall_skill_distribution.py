@@ -5,18 +5,17 @@ import seaborn as sns
 from scipy import stats
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from data_parser import parse_sql_to_df, preprocess_data, aggregate_per_session
+from data_parser import parse_sql_to_df, preprocess_data, aggregate_per_session, add_sql_argument, DEFAULT_SQL
+from models import FEATURES
 
-FEATURES = [
-    'jumpSuccessRate', 'jumpsFailed', 'totalFalls', 'maxFallDistance', 
-    'distancePerJump', 'avgTimeBetweenJumps', 'totalJumpsAttempted', 
-    'velocity_magnitude', 'pos_x', 'pos_y'
-]
+# FEATURES kommt aus models.py. Der Skill-Score soll denselben Merkmalsraum
+# beschreiben wie das ausgelieferte Modell — eine eigene Liste hier wuerde
+# unbemerkt veralten, sobald sich der Feature-Satz aendert.
 
-def analyze_overall_distribution():
+def analyze_overall_distribution(sql_path=None):
     print("--- Overall Dataset Gaussian Analysis (PCA) ---")
 
-    sql_path = "../telemetry_rows.sql"
+    sql_path = sql_path or DEFAULT_SQL
     if not os.path.exists(sql_path):
         print(f"File not found: {sql_path}. Please place it in the project root.")
         return
@@ -91,4 +90,7 @@ def analyze_overall_distribution():
     print(f"Plot successfully saved to: ml_pipeline/{out_file}")
 
 if __name__ == "__main__":
-    analyze_overall_distribution()
+    import argparse
+    analyze_overall_distribution(
+        add_sql_argument(argparse.ArgumentParser()).parse_args().sql
+    )

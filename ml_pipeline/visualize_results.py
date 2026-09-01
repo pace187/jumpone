@@ -19,8 +19,11 @@ from sklearn.metrics import (
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from data_parser import parse_sql_to_df, preprocess_data, aggregate_per_session
-from models import make_logistic_regression, make_decision_tree, make_xgboost
+from data_parser import parse_sql_to_df, preprocess_data, aggregate_per_session, add_sql_argument
+from models import (
+    make_logistic_regression, make_decision_tree, make_xgboost,
+    FEATURES, TARGET,
+)
 
 # ── Stil ────────────────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -36,13 +39,12 @@ plt.rcParams.update({
 })
 PALETTE   = ["#4C72B0", "#DD8452", "#55A868"]   # LR / DT / XGB
 OUT_DIR   = "plots"
-SQL_PATH  = "../telemetry_rows.sql"
-FEATURES  = [
-    'jumpSuccessRate', 'jumpsFailed', 'totalFalls', 'maxFallDistance',
-    'distancePerJump', 'avgTimeBetweenJumps', 'totalJumpsAttempted',
-    'velocity_magnitude', 'pos_x', 'pos_y'
-]
-TARGET = 'Will_Finish'
+# FEATURES / TARGET stammen aus models.py, damit Plots und exportiertes
+# Modell nicht auseinanderlaufen.
+
+# Gemessen und gespeichert, aber nicht trainiert. Taucht nur in der
+# deskriptiven Verteilungsfigur auf, dort ausdruecklich markiert.
+EXCLUDED_FROM_MODEL = ['avgTimeBetweenJumps']
 
 FEATURE_LABELS = {
     'jumpSuccessRate':     'Jump Success Rate',
@@ -292,15 +294,21 @@ def plot_class_distribution(df):
 
 # ── Plot 7: Feature Distributions (Grid with Gaussian Fit) ─────────────────
 def plot_feature_distributions(df, df_agg):
-    """2×5 grid of all features with histogram + Gaussian fit + p-value."""
-    PLOT_FEATURES = [
-        'jumpSuccessRate', 'jumpsFailed', 'totalFalls', 'maxFallDistance',
-        'distancePerJump', 'avgTimeBetweenJumps', 'totalJumpsAttempted',
-        'velocity_magnitude', 'pos_x', 'pos_y'
-    ]
-    n_cols, n_rows = 2, 5
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 18))
+    """Grid of the model features plus the measured-but-excluded ones,
+    each with histogram + Gaussian fit + p-value.
+
+    This figure is descriptive: it shows how the collected quantities are
+    distributed, not what the model uses. avgTimeBetweenJumps is therefore still
+    plotted — it is the evidence for why it was excluded — but marked as such so
+    it cannot be mistaken for a model input."""
+    PLOT_FEATURES = list(FEATURES) + EXCLUDED_FROM_MODEL
+
+    n_cols = 2
+    n_rows = -(-len(PLOT_FEATURES) // n_cols)   # aufrunden
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 3.6 * n_rows))
     axes = axes.flatten()
+    for ax in axes[len(PLOT_FEATURES):]:        # ungenutzte Felder ausblenden
+        ax.set_visible(False)
 
     for idx, feat in enumerate(PLOT_FEATURES):
         ax  = axes[idx]
@@ -331,7 +339,11 @@ def plot_feature_distributions(df, df_agg):
                     fontsize=8.5, color=color_p,
                     bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=color_p, alpha=0.8))
 
-        ax.set_title(FEATURE_LABELS.get(feat, feat), fontsize=11)
+        title = FEATURE_LABELS.get(feat, feat)
+        if feat in EXCLUDED_FROM_MODEL:
+            title += "  —  excluded from model"
+        ax.set_title(title, fontsize=11,
+                     color="#C44E52" if feat in EXCLUDED_FROM_MODEL else "black")
         ax.set_ylabel("Density")
         ax.legend(fontsize=7.5, loc="upper left")
         ax.spines['top'].set_visible(False)
@@ -424,13 +436,24 @@ def plot_pca_skill_score(df_agg):
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    import argparse
+    _ap = argparse.ArgumentParser()
+    _ap.add_argument("--max-rows", type=int, default=0,
+                     help="max. Zeilen je Session (0 = kein Subsampling). Muss zum "
+                          "Lauf von train_xgboost.py passen, sonst beschreiben die "
+                          "Plots ein anderes Modell als das ausgelieferte.")
+    add_sql_argument(_ap)
+    _args = _ap.parse_args()
+    SQL_PATH = _args.sql
+
     if not os.path.exists(SQL_PATH):
         print(f"Error: {SQL_PATH} not found.")
         exit(1)
 
     # Parse the SQL dump once — every plot below works off these two frames
     print("Loading data...")
-    df     = preprocess_data(parse_sql_to_df(SQL_PATH))
+    df     = preprocess_data(parse_sql_to_df(SQL_PATH),
+                             max_rows_per_session=_args.max_rows or None)
     df_agg = aggregate_per_session(df)
 
     models, data = train_models(df)

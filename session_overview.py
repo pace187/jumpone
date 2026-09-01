@@ -186,6 +186,7 @@ def delete_sessions(sessions: Counter, delete_ids: list[str], dry_run: bool):
 
 
 def main():
+    global SQL_FILE
     parser = argparse.ArgumentParser(description="Telemetry SQL Session-Übersicht & Filterung")
     parser.add_argument(
         "--clean", metavar="MIN_ENTRIES", type=int,
@@ -199,7 +200,19 @@ def main():
         "--dry-run", action="store_true",
         help="Nur Vorschau anzeigen, Datei nicht verändern"
     )
+    parser.add_argument(
+        "--sql", metavar="PFAD", default=None,
+        help=f"Pfad zum SQL-Export (Standard: {SQL_FILE.name})"
+    )
     args = parser.parse_args()
+
+    # Modul-global, weil clean_sql()/delete_sessions() darauf zugreifen.
+    if args.sql:
+        SQL_FILE = Path(args.sql)
+
+    if not SQL_FILE.exists():
+        print(f"Datei nicht gefunden: {SQL_FILE}")
+        sys.exit(1)
 
     print(f"Lese {SQL_FILE.name} ...")
     content = SQL_FILE.read_text(encoding="utf-8")

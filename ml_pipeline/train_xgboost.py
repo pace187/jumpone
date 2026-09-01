@@ -4,22 +4,19 @@ import argparse
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, f1_score
 from sklearn.preprocessing import StandardScaler
-from data_parser import parse_sql_to_df, preprocess_data
-from models import make_logistic_regression, make_decision_tree, make_xgboost
-
-FEATURES = [
-    'jumpSuccessRate', 'jumpsFailed', 'totalFalls', 'maxFallDistance', 
-    'distancePerJump', 'avgTimeBetweenJumps', 'totalJumpsAttempted', 
-    'velocity_magnitude', 'pos_x', 'pos_y'
-]
-TARGET = 'Will_Finish'
+from data_parser import parse_sql_to_df, preprocess_data, add_sql_argument
+from models import (
+    make_logistic_regression, make_decision_tree, make_xgboost,
+    FEATURES, TARGET,
+)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--max-rows', type=int, default=0, help="Max rows per session (0 to disable subsampling)")
+    add_sql_argument(parser)
     args = parser.parse_args()
 
-    sql_path = '../telemetry_rows.sql'
+    sql_path = args.sql
     if not os.path.exists(sql_path):
         print(f"Error: {sql_path} not found.")
         return
@@ -81,19 +78,24 @@ def main():
     feature_list_str = ", ".join(f"[{i}] {name}" for i, name in enumerate(FEATURES))
     
     wrapper = f"""
-// Auto-generated XGBoost Model
+// Auto-generated XGBoost Model — do not edit by hand.
+// Regenerate with: python3 train_xgboost.py
 // Used for Real-Time Win Probability Prediction in JumpOne
 // Features expected in array order:
 // {feature_list_str}
 
+// @ts-nocheck -- machine-generated body from m2cgen
+
 {xgb_js}
 
-// m2cgen generates 'function score(input) {{ ... }}'
-// It outputs raw margins (log-odds). We convert it to Probability [0, 1]
-export function predictWinProbability(features) {{
-    const rawMargin = score(features); 
-    let prob = 1 / (1 + Math.exp(-rawMargin));
-    return prob;
+// m2cgen emits 'function score(input) {{ ... }}'.
+// For a binary classifier it already applies the sigmoid internally and
+// returns [P(class 0), P(class 1)] — do NOT apply a sigmoid again.
+export function predictWinProbability(features: number[]): number {{
+    const out = score(features);
+    return Array.isArray(out)
+        ? out[out.length - 1]        // classifier: last entry is P(win)
+        : 1 / (1 + Math.exp(-out));  // regressor: raw logit
 }}
 """
     
