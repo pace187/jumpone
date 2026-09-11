@@ -22,25 +22,37 @@ def main():
         return
         
     df_raw = parse_sql_to_df(sql_path)
-    
+
+    # section 4.3: sessions below 100 rows contain no active play. without this
+    # filter the shipped model trains on a different dataset than chapter 5
+    # evaluates.
+    sizes = df_raw.groupby('session_id').size()
+    dropped = sizes[sizes < 100].index
+    df_raw = df_raw[~df_raw['session_id'].isin(dropped)]
+    print(f"{len(dropped)} sessions with < 100 rows excluded, "
+          f"{df_raw['session_id'].nunique()} remain.")
+
     max_rows = args.max_rows if args.max_rows > 0 else None
     df = preprocess_data(df_raw, max_rows_per_session=max_rows)
     
     df = df[FEATURES + [TARGET]].fillna(0)
     
-    # Ensure there are both classes (it fails if the dummy data only has quits or wins)
+    # both classes must be present
     if len(df[TARGET].unique()) < 2:
         print("ERROR: Not enough class diversity to train. Ensure there is at least one 'Finished' session.")
-        # Create synthetic positive class just so the pipeline runs through testing
+        # inject a synthetic positive class so the pipeline can be smoke-tested
         print("Artificially injecting some dummy positive classes for pipeline test.")
         df.loc[df.index[-10:], TARGET] = 1 
     
     X = df[FEATURES]
     y = df[TARGET]
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # stratify keeps the class balance in both halves; otherwise table 3 is
+    # not reproducible.
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y)
 
-    # --- Baseline: Logistic Regression ---
+    # --- baseline: logistic regression ---
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
@@ -52,7 +64,7 @@ def main():
     lr_js = m2c.export_to_javascript(lr)
     print(f"\n[Logistic Regression]  Accuracy: {lr_acc:.3f}  F1: {lr_f1:.3f}  JS size: {len(lr_js):,} chars")
 
-    # --- Baseline: Decision Tree ---
+    # --- baseline: decision tree ---
     dt = make_decision_tree()
     dt.fit(X_train, y_train)
     dt_acc = dt.score(X_test, y_test)
@@ -60,7 +72,7 @@ def main():
     dt_js = m2c.export_to_javascript(dt)
     print(f"[Decision Tree]        Accuracy: {dt_acc:.3f}  F1: {dt_f1:.3f}  JS size: {len(dt_js):,} chars")
 
-    # --- Main model: XGBoost ---
+    # --- main model: xgboost ---
     print(f"\nTraining XGBoost Classifier on {len(X_train)} samples...")
     model = make_xgboost()
     model.fit(X_train, y_train)
@@ -72,7 +84,7 @@ def main():
     print(f"\n=> XGBoost vs. Logistic Regression: Δ Accuracy {xgb_acc - lr_acc:+.3f}, Δ F1 {xgb_f1 - lr_f1:+.3f}")
     print(f"=> XGBoost vs. Decision Tree:        Δ Accuracy {xgb_acc - dt_acc:+.3f}, Δ F1 {xgb_f1 - dt_f1:+.3f}")
 
-    # Export XGBoost to JavaScript using m2cgen
+    # export to javascript with m2cgen
     print("\nExporting XGBoost model to JavaScript...")
 
     feature_list_str = ", ".join(f"[{i}] {name}" for i, name in enumerate(FEATURES))
