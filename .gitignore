@@ -32,3 +32,5 @@ __pycache__
 *.png
 *.sql
 *.md
+# archived drafts and data, kept locally only
+_archiv/

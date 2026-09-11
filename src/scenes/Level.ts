@@ -308,9 +308,9 @@ export default class Level extends Phaser.Scene {
 	private lastInputTime = -1;
 	private lastUpdateTime = 0;
 	private isAfk = false;
-	private readonly AFK_TIMEOUT = 10000; // 10 seconds
+	private readonly AFK_TIMEOUT = 10000;
 
-	// Machine Learning Telemetry Tracking
+	// telemetry state
 	private jumpInProgress = false;
 	private isFalling = false;
 	private fallFromY = 0;
@@ -325,13 +325,8 @@ export default class Level extends Phaser.Scene {
 	private hitCeilingDuringJump = false;
 	private jumpStartTime = 0;
 	private landTime = 0;
-
-	// Phasers Uhr laeuft waehrend einer Pause weiter, die Scene wird aber nicht
-	// aktualisiert. Ohne diese Buchhaltung landet die komplette Pausendauer in
-	// der "Planungszeit" zwischen zwei Spruengen.
 	private totalPausedTime = 0;
 	private pauseStartedAt = 0;
-	/** Stand von totalPausedTime bei der letzten Landung. */
 	private landPausedTotal = 0;
 	private sessionStartTime = 0;
 	private succeededJumps = 0;
@@ -344,27 +339,17 @@ export default class Level extends Phaser.Scene {
 	private planningTimeCount = 0;
 	private totalJumpsAttempted = 0;
 
-	// Debug
+	// debug
 	private readonly SHOW_TELEMETRY_DEBUG = false;
 	private debugText!: Phaser.GameObjects.Text;
 
-	// Live ML
-	/**
-	 * Blendet die Echtzeit-Prognose im HUD ein.
-	 *
-	 * Waehrend einer Datenerhebung MUSS das false sein: eine sichtbare
-	 * Gewinnwahrscheinlichkeit beeinflusst genau das Verhalten, das gemessen
-	 * werden soll (wer "12%" liest, gibt eher auf). Die Prognose wird dann gar
-	 * nicht erst berechnet. Auf die Telemetrie hat der Schalter keinen Einfluss —
-	 * der Vorhersagewert wird ohnehin nicht gespeichert.
-	 */
+	// live prediction
 	private readonly SHOW_WIN_PREDICTION = false;
-	private text_winProb!: Phaser.GameObjects.Text;
+	private text_checkpoints!: Phaser.GameObjects.Text;
+	private winProbBar!: Phaser.GameObjects.Graphics;
+	private winProbLabel!: Phaser.GameObjects.Text;
+	private winProbShown = 0.5;
 
-	/**
-	 * Clears all per-run AFK and ML tracking state.
-	 * Field initializers only run once per scene instance, so a restart needs this explicitly.
-	 */
 	private resetTracking() {
 		this.lastInputTime = -1;
 		this.isAfk = false;
@@ -438,12 +423,17 @@ export default class Level extends Phaser.Scene {
 		this.text_checkpoints.setPosition(20, 40);
 		this.text_checkpoints.setOrigin(0, 0.5);
 
-		// ML Predictor UI Display
+		// prediction display
 		if (this.SHOW_WIN_PREDICTION) {
-			this.text_winProb = this.add.text(0, 0, 'Win Probability: 50.0%', { "fontSize": "32px", "color": "#00ff00", "stroke": "#000000ff", "strokeThickness": 3 });
-			this.text_winProb.setScrollFactor(0);
-			this.text_winProb.setPosition(20, 80);
-			this.text_winProb.setOrigin(0, 0.5);
+			this.winProbLabel = this.add.text(20, 62, 'Chance of finishing', {
+				"fontSize": "16px", "color": "#ffffff",
+				"stroke": "#000000ff", "strokeThickness": 3,
+			});
+			this.winProbLabel.setScrollFactor(0);
+
+			this.winProbBar = this.add.graphics();
+			this.winProbBar.setScrollFactor(0);
+			this.drawWinProbBar(0.5);
 		}
 
 		this.physics.world.setBounds(0, 0, 1280, 7000);
@@ -470,14 +460,11 @@ export default class Level extends Phaser.Scene {
 		this.text_pause.setInteractive({ useHandCursor: true });
 		this.text_pause.on("pointerdown", pauseHandler);
 
-		// Pausendauer mitzaehlen. Date.now() statt this.time.now, weil die
-		// Scene-Uhr waehrend der Pause steht — gemessen werden soll aber die
-		// real verstrichene Zeit.
 		this.events.on('pause', () => {
 			this.pauseStartedAt = Date.now();
 		});
 
-		// Reset AFK state when scene resumes (from manual or AFK pause)
+		// reset afk state when the scene resumes
 		this.events.on('resume', () => {
 			if (this.pauseStartedAt > 0) {
 				this.totalPausedTime += Date.now() - this.pauseStartedAt;
@@ -501,7 +488,7 @@ export default class Level extends Phaser.Scene {
 	update(_time: number, delta: number) {
 		this.lastUpdateTime = _time;
 
-		// AFK detection — initialize from first update frame's clock
+		// afk detection
 		if (this.lastInputTime < 0) {
 			this.lastInputTime = _time;
 		}
@@ -511,21 +498,20 @@ export default class Level extends Phaser.Scene {
 			this.isAfk = false;
 		} else if (_time - this.lastInputTime > this.AFK_TIMEOUT && !this.isAfk) {
 			this.isAfk = true;
-			this.updateTelemetry(_time, true);  // force-send AFK state before pausing
+			this.updateTelemetry(_time, true);
 			this.scene.pause();
 			this.scene.launch('Pause');
 		}
 
-		//Camera Follow
+		// camera follow
 		this.cameras.main.startFollow(this.arcadesprite_1, true);
-		//this.cameras.main.setFollowOffset(0, 1000);
 		this.cameras.main.setBounds(0, 0, 1280, 7000);
 
 		const body = this.arcadesprite_1.body!;
 		const onGround = body.blocked.down;
 		const isMovingUp = body.velocity.y < 0;
 
-		// Check if any part of the player's feet is on an ice tile
+		// is any part of the player's feet on an ice tile
 		const feetY = body.y + body.height + 1;
 		const feetLeft = body.x;
 		const feetCenter = body.x + body.halfWidth;
@@ -542,9 +528,8 @@ export default class Level extends Phaser.Scene {
 			this.arcadesprite_1.flipX = true;
 		}
 
-		// Machine Learning - Fall Detection
+		// fall detection
 		if (this.wasOnGround && !onGround && !this.jumpInProgress) {
-			// Player walked off a platform
 			this.platformLeaveY = body.y;
 		}
 		this.wasOnGround = onGround;
@@ -580,7 +565,7 @@ export default class Level extends Phaser.Scene {
 			}
 		}
 
-		// Machine Learning - Landing Logic
+		// landing logic
 		if (onGround && this.isFalling && !isMovingUp) {
 			const currentFallDistance = Math.abs(this.maxFallBodyY - this.fallFromY);
 			this.totalFallDistance += currentFallDistance;
@@ -640,16 +625,16 @@ export default class Level extends Phaser.Scene {
 						this.jumpDirection = 0;
 					}
 				} else {
-					//normal walking
+					// normal walking
 					if (isOnIce) {
 						const dt = delta / 1000;
-						// Always apply ice friction first
+						// apply ice friction
 						if (body.velocity.x > 0) {
 							body.velocity.x = Math.max(body.velocity.x - this.iceFriction * dt, 0);
 						} else if (body.velocity.x < 0) {
 							body.velocity.x = Math.min(body.velocity.x + this.iceFriction * dt, 0);
 						}
-						// Then apply acceleration from input
+						// apply acceleration from input
 						if (this.leftKey.isDown) {
 							this.arcadesprite_1.play("characterWalkspritesheet", true);
 							body.velocity.x = Math.max(body.velocity.x - this.iceAcceleration * dt, -this.playerVelocity);
@@ -701,16 +686,12 @@ export default class Level extends Phaser.Scene {
 
 		this.updateTelemetry(_time);
 
-		// Run Live ML Prediction (approximately every 1s)
+		// live prediction, once per second
 		if (this.SHOW_WIN_PREDICTION && Math.floor(_time) % 1000 < delta) {
 			const data = this.aggregateSessionData();
 			const body = this.player?.body as Phaser.Physics.Arcade.Body | undefined;
 			if (body) {
 				const velocityMag = Math.round(Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2));
-				// Order must match FEATURES in ml_pipeline/models.py — the exported
-				// model takes a bare array, so a wrong order fails silently.
-				// avgTimeBetweenJumps is intentionally absent: it counts paused time
-				// and made the model treat any pause as "this player will quit".
 				const ml_features = [
 					data.jumpSuccessRate,
 					data.jumpsFailed,
@@ -724,18 +705,29 @@ export default class Level extends Phaser.Scene {
 				];
 
 				const prob = predictWinProbability(ml_features);
-				const pct = (prob * 100).toFixed(1);
-				this.text_winProb.setText(`Win Probability: ${pct}%`);
-
-				if (prob < 0.3) this.text_winProb.setColor("#ff0000");
-				else if (prob > 0.7) this.text_winProb.setColor("#00ff00");
-				else this.text_winProb.setColor("#ffff00");
+				this.drawWinProbBar(prob);
 			}
 		}
 	}
 
+	private drawWinProbBar(prob: number) {
+		const X = 20, Y = 84, W = 220, H = 14;
+
+		this.winProbShown += (prob - this.winProbShown) * 0.35;
+		const v = Phaser.Math.Clamp(this.winProbShown, 0, 1);
+
+		const hue = v * 0.33;
+		const colour = Phaser.Display.Color.HSVToRGB(hue, 0.85, 0.9) as Phaser.Types.Display.ColorObject;
+
+		this.winProbBar.clear();
+		this.winProbBar.fillStyle(0x000000, 0.45).fillRect(X - 2, Y - 2, W + 4, H + 4);
+		this.winProbBar.fillStyle(0xffffff, 0.15).fillRect(X, Y, W, H);
+		this.winProbBar.fillStyle(Phaser.Display.Color.GetColor(colour.r, colour.g, colour.b), 1)
+			.fillRect(X, Y, W * v, H);
+	}
+
 	private applyJump() {
-		// Machine Learning - Jump Start Logic
+		// jump start
 		if (this.arcadesprite_1.body!.blocked.down) {
 			this.jumpInProgress = true;
 			this.jumpStartX = this.arcadesprite_1.x;
@@ -747,8 +739,6 @@ export default class Level extends Phaser.Scene {
 			this.jumpStartTime = this.time.now;
 			this.totalJumpsAttempted++;
 			if (this.landTime > 0) {
-				// Nur die tatsaechlich verspielte Zeit zaehlt als Planungszeit —
-				// alles, was der Spieler pausiert hat, wird abgezogen.
 				const pausedSinceLanding = this.totalPausedTime - this.landPausedTotal;
 				const planning = (this.jumpStartTime - this.landTime) - pausedSinceLanding;
 				this.totalPlanningTime += Math.max(0, planning);
@@ -764,16 +754,6 @@ export default class Level extends Phaser.Scene {
 		this.jumpDirection = 0;
 	}
 
-	/**
-	 * Stabile, anonyme Kennung des Browsers — bleibt ueber Sessions hinweg bestehen.
-	 * Erlaubt es, bei der Auswertung nach Person statt nach Session zu gruppieren:
-	 * spielt jemand mehrfach, duerfen seine anderen Laeufe nicht im Training
-	 * stehen, wenn geprueft werden soll, ob das Modell auf einem UNBEKANNTEN
-	 * Spieler funktioniert.
-	 *
-	 * Kein Personenbezug — eine Zufallszahl. Gilt pro Browser: dieselbe Person auf
-	 * Handy und Laptop zaehlt als zwei, geloeschte Browserdaten erzeugen eine neue.
-	 */
 	private getOrCreatePlayerId() {
 		const KEY = 'jumpone_player_id';
 		try {
@@ -785,14 +765,13 @@ export default class Level extends Phaser.Scene {
 			}
 			return id;
 		} catch {
-			// Privater Modus o.ae.: lieber ohne Kennung senden als abstuerzen.
 			return '';
 		}
 	}
 	playerId = '';
 
 	private createSession() {
-		//new session every game start for better per-try tracking
+		// new session on every game start, one per attempt
 		const newSessionId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 		localStorage.setItem('gameSession', JSON.stringify({
 			id: newSessionId,
@@ -803,13 +782,11 @@ export default class Level extends Phaser.Scene {
 	}
 	sessionId = '';
 
-	//telemetry Data
-
+	// telemetry
 	private SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 	private SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 	private get player() { return this.arcadesprite_1; }
 
-	/** POSTs one telemetry row for the given state. Callers attach their own error handling. */
 	private postTelemetry(state: string): Promise<Response> {
 		const sessionData = this.aggregateSessionData();
 		const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -866,7 +843,7 @@ export default class Level extends Phaser.Scene {
 	}
 
 	private aggregateSessionData() {
-		// Calculate final machine-learning features
+		// cumulative features sent with every row
 		const jumpSuccessRate = this.totalJumpsAttempted > 0 ? (this.succeededJumps / this.totalJumpsAttempted) : 0;
 		const avgFallDistance = this.failedJumps > 0 ? (this.totalFallDistance / this.failedJumps) : 0;
 		const distancePerJump = this.succeededJumps > 0 ? (this.totalDistanceCovered / this.succeededJumps) : 0;

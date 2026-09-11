@@ -1,15 +1,8 @@
 #!/usr/bin/env python3
 """
 make_artifact_figure.py
-Erzeugt Abbildung 5.4: wie eine einzige Pause das alte Modell ausser Kraft setzt.
-
-Die Abbildung braucht das Modell von VOR der Korrektur, weil das heutige
-avgTimeBetweenJumps gar nicht mehr kennt. Es wird aus dem Git-Verlauf geholt
-(Commit 72bf8b9 vom 10. Juni 2026) und mit node ueber die Zeilen einer
-betroffenen Session laufen gelassen. Nichts daran ist rekonstruiert.
-
-Voraussetzungen: node im PATH, git-Repository vorhanden.
-Aufruf: python3 make_artifact_figure.py [--sql ../telemetry_rows_01092026.sql]
+figure 5: the pre-correction model (git 72bf8b9) scored over one session with node.
+  python3 make_artifact_figure.py [--sql ../telemetry_rows_01092026.sql]
 """
 
 import argparse
@@ -29,14 +22,15 @@ from data_parser import parse_sql_to_df
 
 warnings.filterwarnings("ignore")
 
-COMMIT = "72bf8b9"                       # letzte Fassung mit avgTimeBetweenJumps
+COMMIT = "72bf8b9"                       # last version that used avgTimeBetweenJumps
 MODEL_PATH = "src/scenes/WinPredictor.ts"
-THRESHOLD = 1940.9534                    # Wurzelverzweigung in 21 von 23 Baeumen
-# Diese Session ueberschreitet die Schwelle nach 3.0 von 5.8 Minuten und zeigt
-# deshalb ein sauberes Vorher und Nachher. Alle zwoelf Sessions, die die
-# Schwelle je ueberschritten haben, wurden abgebrochen.
+THRESHOLD = 1940.9534                    # root split in 21 of the 30 trees;
+                                         # 4 more test the same feature at 1908.01 ms
+# this session crosses the threshold after 3.0 of 5.8 minutes, so it shows a
+# clean before and after. all twelve pre-september sessions that ever crossed
+# it were abandoned.
 SESSION = "1778351252932-8ckl1zh31"
-# Merkmalsreihenfolge des alten Modells (aus dem Kopf der generierten Datei)
+# feature order of the old model (from the header of the generated file)
 ORDER = ["jumpSuccessRate", "jumpsFailed", "totalFalls", "maxFallDistance",
          "distancePerJump", "avgTimeBetweenJumps", "totalJumpsAttempted",
          "velocity_magnitude", "pos_x", "pos_y"]
@@ -45,10 +39,9 @@ RUNNER = """
 const fs = require('fs');
 eval(fs.readFileSync(process.argv[2], 'utf8').replace(/export\\s+/g, ''));
 const rows = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
-// score() liefert bei einem Klassifikator [P(verloren), P(gewonnen)] und hat die
-// Sigmoid bereits angewandt. Der damalige Wrapper hat sie ein zweites Mal
-// angewandt und deshalb NaN geliefert - hier wird korrekt der letzte Eintrag
-// genommen, damit die Abbildung zeigt, was das Modell gemeint hat.
+// for a classifier score() returns [p(lost), p(won)] with the sigmoid already
+// applied. the old wrapper applied it a second time and produced NaN; here
+// the last entry is taken so the figure shows what the model meant.
 const out = rows.map(r => { const s = score(r);
     return Array.isArray(s) ? s[s.length - 1] : 1 / (1 + Math.exp(-s)); });
 fs.writeFileSync(process.argv[4], JSON.stringify(out));
@@ -56,7 +49,7 @@ fs.writeFileSync(process.argv[4], JSON.stringify(out));
 
 
 def score_with_old_model(X, repo_root):
-    """Holt das alte Modell aus git und bewertet die Zeilen mit node."""
+    """fetches the old model from git and scores the rows with node."""
     js = subprocess.run(["git", "-C", repo_root, "show", f"{COMMIT}:{MODEL_PATH}"],
                         capture_output=True, text=True, check=True).stdout
     with tempfile.TemporaryDirectory() as tmp:
@@ -80,12 +73,12 @@ def main():
     df = parse_sql_to_df(args.sql).sort_values(["session_id", "timestamp"])
     g = df[df.session_id == SESSION]
     if g.empty:
-        sys.exit(f"Session {SESSION} nicht im Export {args.sql}")
+        sys.exit(f"session {SESSION} not in export {args.sql}")
 
-    t = (g.timestamp.to_numpy() - g.timestamp.min()) / 60000.0      # Minuten
+    t = (g.timestamp.to_numpy() - g.timestamp.min()) / 60000.0      # minutes
     atbj, posy = g.avgTimeBetweenJumps.to_numpy(), g.pos_y.to_numpy()
     p = score_with_old_model(g[ORDER].fillna(0).values.tolist(), root)
-    c = int(np.argmax(atbj >= THRESHOLD))                            # Umschlagpunkt
+    c = int(np.argmax(atbj >= THRESHOLD))                            # crossing point
 
     BLUE, ORANGE, GREY, RED = "#1f4e79", "#c07c39", "#9aa0a6", "#b00020"
     plt.rcParams.update({"font.size": 9, "axes.spines.top": False,
@@ -128,7 +121,7 @@ def main():
     fig.text(0.5, -0.03,
              f"Session {SESSION} (abandoned), scored with the model version of "
              f"10 June 2026 (commit {COMMIT}), which still used avgTimeBetweenJumps.\n"
-             f"In 21 of its 23 trees that feature formed the root split. All twelve "
+             f"In 25 of its 30 trees that feature formed the root split. All twelve "
              f"sessions that ever crossed the threshold were abandoned.",
              ha="center", fontsize=7.3, color="#555")
     fig.savefig(args.out)
